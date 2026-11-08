@@ -1,0 +1,418 @@
+﻿<html lang="en" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
+<meta charset="utf-8">
+<title>My Mini Apps Hub</title>
+<style>@page { margin: 2cm; } body { font-family: Calibri, Arial, sans-serif; color: #1f2328; }</style>
+</head>
+<body>
+<div style="border:1.5pt solid #6b54e6;padding:14pt 16pt">
+<h1 style="font:bold 20pt Calibri,Arial,sans-serif;margin:0">My Mini Apps Hub</h1>
+<p style="font-size:10pt;color:#6b727c;margin:4pt 0 0">HTML, CSS, JS Runs in your browser  ·  1 file  ·  402 lines  ·  November 8, 2026</p>
+<p style="margin:8pt 0 0;border-top:2pt solid #6b54e6;font-size:1pt">&nbsp;</p>
+<h2 style="font:bold 11pt Calibri,Arial,sans-serif;color:#6b54e6;background:#f4f2ff;padding:5pt 8pt;margin:16pt 0 6pt">script.js</h2>
+<pre style="font:9pt Consolas,'Courier New',monospace;line-height:1.35;margin:0;white-space:pre-wrap;word-wrap:break-word"> 
+<span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> externalApps = [</span>
+<span style="color:#1f2328">  { name: </span><span style="color:#147a3d">"Facebook"</span><span style="color:#1f2328">, category: </span><span style="color:#147a3d">"social"</span><span style="color:#1f2328">, icon: </span><span style="color:#147a3d">"f"</span><span style="color:#1f2328">, style: </span><span style="color:#147a3d">"facebook"</span><span style="color:#1f2328">, description: </span><span style="color:#147a3d">"Connect with friends and family."</span><span style="color:#1f2328">, url: </span><span style="color:#147a3d">"https://www.facebook.com/"</span><span style="color:#1f2328"> },</span>
+<span style="color:#1f2328">  { name: </span><span style="color:#147a3d">"Instagram"</span><span style="color:#1f2328">, category: </span><span style="color:#147a3d">"social"</span><span style="color:#1f2328">, icon: </span><span style="color:#147a3d">"◎"</span><span style="color:#1f2328">, style: </span><span style="color:#147a3d">"instagram"</span><span style="color:#1f2328">, description: </span><span style="color:#147a3d">"Share photos, stories and reels."</span><span style="color:#1f2328">, url: </span><span style="color:#147a3d">"https://www.instagram.com/"</span><span style="color:#1f2328"> },</span>
+<span style="color:#1f2328">  { name: </span><span style="color:#147a3d">"TikTok"</span><span style="color:#1f2328">, category: </span><span style="color:#147a3d">"video"</span><span style="color:#1f2328">, icon: </span><span style="color:#147a3d">"♪"</span><span style="color:#1f2328">, style: </span><span style="color:#147a3d">"tiktok"</span><span style="color:#1f2328">, description: </span><span style="color:#147a3d">"Discover short videos."</span><span style="color:#1f2328">, url: </span><span style="color:#147a3d">"https://www.tiktok.com/"</span><span style="color:#1f2328"> },</span>
+<span style="color:#1f2328">  { name: </span><span style="color:#147a3d">"WhatsApp"</span><span style="color:#1f2328">, category: </span><span style="color:#147a3d">"social"</span><span style="color:#1f2328">, icon: </span><span style="color:#147a3d">"◉"</span><span style="color:#1f2328">, style: </span><span style="color:#147a3d">"whatsapp"</span><span style="color:#1f2328">, description: </span><span style="color:#147a3d">"Message friends and family."</span><span style="color:#1f2328">, url: </span><span style="color:#147a3d">"https://web.whatsapp.com/"</span><span style="color:#1f2328"> },</span>
+<span style="color:#1f2328">  { name: </span><span style="color:#147a3d">"YouTube"</span><span style="color:#1f2328">, category: </span><span style="color:#147a3d">"video"</span><span style="color:#1f2328">, icon: </span><span style="color:#147a3d">"▶"</span><span style="color:#1f2328">, style: </span><span style="color:#147a3d">"youtube"</span><span style="color:#1f2328">, description: </span><span style="color:#147a3d">"Watch videos and discover creators."</span><span style="color:#1f2328">, url: </span><span style="color:#147a3d">"https://www.youtube.com/"</span><span style="color:#1f2328"> },</span>
+<span style="color:#1f2328">  { name: </span><span style="color:#147a3d">"Spotify"</span><span style="color:#1f2328">, category: </span><span style="color:#147a3d">"music"</span><span style="color:#1f2328">, icon: </span><span style="color:#147a3d">"♫"</span><span style="color:#1f2328">, style: </span><span style="color:#147a3d">"spotify"</span><span style="color:#1f2328">, description: </span><span style="color:#147a3d">"Listen to music and podcasts."</span><span style="color:#1f2328">, url: </span><span style="color:#147a3d">"https://open.spotify.com/"</span><span style="color:#1f2328"> },</span>
+<span style="color:#1f2328">  { name: </span><span style="color:#147a3d">"X"</span><span style="color:#1f2328">, category: </span><span style="color:#147a3d">"social"</span><span style="color:#1f2328">, icon: </span><span style="color:#147a3d">"𝕏"</span><span style="color:#1f2328">, style: </span><span style="color:#147a3d">"x"</span><span style="color:#1f2328">, description: </span><span style="color:#147a3d">"Discover what's happening."</span><span style="color:#1f2328">, url: </span><span style="color:#147a3d">"https://x.com/"</span><span style="color:#1f2328"> },</span>
+<span style="color:#1f2328">  { name: </span><span style="color:#147a3d">"Threads"</span><span style="color:#1f2328">, category: </span><span style="color:#147a3d">"social"</span><span style="color:#1f2328">, icon: </span><span style="color:#147a3d">"@"</span><span style="color:#1f2328">, style: </span><span style="color:#147a3d">"threads"</span><span style="color:#1f2328">, description: </span><span style="color:#147a3d">"Join conversations and share ideas."</span><span style="color:#1f2328">, url: </span><span style="color:#147a3d">"https://www.threads.net/"</span><span style="color:#1f2328"> },</span>
+<span style="color:#1f2328">  { name: </span><span style="color:#147a3d">"Telegram"</span><span style="color:#1f2328">, category: </span><span style="color:#147a3d">"social"</span><span style="color:#1f2328">, icon: </span><span style="color:#147a3d">"➤"</span><span style="color:#1f2328">, style: </span><span style="color:#147a3d">"telegram"</span><span style="color:#1f2328">, description: </span><span style="color:#147a3d">"Chat and join communities."</span><span style="color:#1f2328">, url: </span><span style="color:#147a3d">"https://web.telegram.org/"</span><span style="color:#1f2328"> },</span>
+<span style="color:#1f2328">  { name: </span><span style="color:#147a3d">"Snapchat"</span><span style="color:#1f2328">, category: </span><span style="color:#147a3d">"social"</span><span style="color:#1f2328">, icon: </span><span style="color:#147a3d">"👻"</span><span style="color:#1f2328">, style: </span><span style="color:#147a3d">"snapchat"</span><span style="color:#1f2328">, description: </span><span style="color:#147a3d">"Share moments with friends."</span><span style="color:#1f2328">, url: </span><span style="color:#147a3d">"https://web.snapchat.com/"</span><span style="color:#1f2328"> },</span>
+<span style="color:#1f2328">  { name: </span><span style="color:#147a3d">"Pinterest"</span><span style="color:#1f2328">, category: </span><span style="color:#147a3d">"other"</span><span style="color:#1f2328">, icon: </span><span style="color:#147a3d">"P"</span><span style="color:#1f2328">, style: </span><span style="color:#147a3d">"pinterest"</span><span style="color:#1f2328">, description: </span><span style="color:#147a3d">"Find ideas and inspiration."</span><span style="color:#1f2328">, url: </span><span style="color:#147a3d">"https://www.pinterest.com/"</span><span style="color:#1f2328"> },</span>
+<span style="color:#1f2328">  { name: </span><span style="color:#147a3d">"Reddit"</span><span style="color:#1f2328">, category: </span><span style="color:#147a3d">"other"</span><span style="color:#1f2328">, icon: </span><span style="color:#147a3d">"●"</span><span style="color:#1f2328">, style: </span><span style="color:#147a3d">"reddit"</span><span style="color:#1f2328">, description: </span><span style="color:#147a3d">"Explore communities and discussions."</span><span style="color:#1f2328">, url: </span><span style="color:#147a3d">"https://www.reddit.com/"</span><span style="color:#1f2328"> }</span>
+<span style="color:#1f2328">];</span>
+ 
+<span style="color:#6638d1;font-weight:bold">let</span><span style="color:#1f2328"> activeFilter = </span><span style="color:#147a3d">"all"</span><span style="color:#1f2328">;</span>
+<span style="color:#6638d1;font-weight:bold">let</span><span style="color:#1f2328"> searchText = </span><span style="color:#147a3d">""</span><span style="color:#1f2328">;</span>
+ 
+<span style="color:#6638d1;font-weight:bold">function</span><span style="color:#1f2328"> getFavourites() {</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">try</span><span style="color:#1f2328"> {</span>
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">return</span><span style="color:#1f2328"> JSON.parse(localStorage.getItem(</span><span style="color:#147a3d">"hubFavourites"</span><span style="color:#1f2328">)) || [];</span>
+<span style="color:#1f2328">  } </span><span style="color:#6638d1;font-weight:bold">catch</span><span style="color:#1f2328"> {</span>
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">return</span><span style="color:#1f2328"> [];</span>
+<span style="color:#1f2328">  }</span>
+<span style="color:#1f2328">}</span>
+ 
+<span style="color:#6638d1;font-weight:bold">function</span><span style="color:#1f2328"> saveFavourites(favourites) {</span>
+<span style="color:#1f2328">  localStorage.setItem(</span><span style="color:#147a3d">"hubFavourites"</span><span style="color:#1f2328">, JSON.stringify(favourites));</span>
+<span style="color:#1f2328">}</span>
+ 
+<span style="color:#6638d1;font-weight:bold">function</span><span style="color:#1f2328"> createAppCard(app) {</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> saved = getFavourites().includes(app.name);</span>
+ 
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">return</span><span style="color:#1f2328"> </span><span style="color:#147a3d">`</span>
+<span style="color:#147a3d">    &lt;article class="app-card"&gt;</span>
+<span style="color:#147a3d">      &lt;div class="app-card-top"&gt;</span>
+<span style="color:#147a3d">        &lt;div class="app-icon ${app.style}"&gt;${app.icon}&lt;/div&gt;</span>
+<span style="color:#147a3d">        &lt;button class="favourite-button ${saved ? "saved" : ""}"</span>
+<span style="color:#147a3d">          data-favourite="${app.name}"&gt;</span>
+<span style="color:#147a3d">          ${saved ? "★" : "☆"}</span>
+<span style="color:#147a3d">        &lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;/div&gt;</span>
+<span style="color:#147a3d">      &lt;h3&gt;${app.name}&lt;/h3&gt;</span>
+<span style="color:#147a3d">      &lt;p&gt;${app.description}&lt;/p&gt;</span>
+<span style="color:#147a3d">      &lt;a class="app-open" href="${app.url}" target="_blank" rel="noopener noreferrer"&gt;</span>
+<span style="color:#147a3d">        Open platform ↗</span>
+<span style="color:#147a3d">      &lt;/a&gt;</span>
+<span style="color:#147a3d">    &lt;/article&gt;</span>
+<span style="color:#147a3d">  `</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">}</span>
+ 
+<span style="color:#6638d1;font-weight:bold">function</span><span style="color:#1f2328"> renderApps() {</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> container = document.getElementById(</span><span style="color:#147a3d">"externalApps"</span><span style="color:#1f2328">);</span>
+ 
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> filtered = externalApps.filter(app =&gt; {</span>
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> matchesCategory = activeFilter === </span><span style="color:#147a3d">"all"</span><span style="color:#1f2328"> || app.category === activeFilter;</span>
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> matchesSearch =</span>
+<span style="color:#1f2328">      app.name.toLowerCase().includes(searchText) ||</span>
+<span style="color:#1f2328">      app.description.toLowerCase().includes(searchText);</span>
+ 
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">return</span><span style="color:#1f2328"> matchesCategory &amp;&amp; matchesSearch;</span>
+<span style="color:#1f2328">  });</span>
+ 
+<span style="color:#1f2328">  container.innerHTML = filtered.map(createAppCard).join(</span><span style="color:#147a3d">""</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">  document.getElementById(</span><span style="color:#147a3d">"appCount"</span><span style="color:#1f2328">).textContent = </span><span style="color:#147a3d">`${filtered.length} apps`</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">  document.getElementById(</span><span style="color:#147a3d">"noApps"</span><span style="color:#1f2328">).hidden = filtered.length !== </span><span style="color:#c25c05">0</span><span style="color:#1f2328">;</span>
+ 
+<span style="color:#1f2328">  renderFavourites();</span>
+<span style="color:#1f2328">}</span>
+ 
+<span style="color:#6638d1;font-weight:bold">function</span><span style="color:#1f2328"> renderFavourites() {</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> favourites = getFavourites();</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> savedApps = externalApps.filter(app =&gt; favourites.includes(app.name));</span>
+ 
+<span style="color:#1f2328">  document.getElementById(</span><span style="color:#147a3d">"favouriteApps"</span><span style="color:#1f2328">).innerHTML =</span>
+<span style="color:#1f2328">    savedApps.map(createAppCard).join(</span><span style="color:#147a3d">""</span><span style="color:#1f2328">);</span>
+ 
+<span style="color:#1f2328">  document.getElementById(</span><span style="color:#147a3d">"noFavourites"</span><span style="color:#1f2328">).hidden =</span>
+<span style="color:#1f2328">    savedApps.length !== </span><span style="color:#c25c05">0</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">}</span>
+ 
+<span style="color:#1f2328">document.getElementById(</span><span style="color:#147a3d">"appSearch"</span><span style="color:#1f2328">).addEventListener(</span><span style="color:#147a3d">"input"</span><span style="color:#1f2328">, event =&gt; {</span>
+<span style="color:#1f2328">  searchText = event.target.value.toLowerCase().trim();</span>
+<span style="color:#1f2328">  renderApps();</span>
+<span style="color:#1f2328">});</span>
+ 
+<span style="color:#1f2328">document.getElementById(</span><span style="color:#147a3d">"filters"</span><span style="color:#1f2328">).addEventListener(</span><span style="color:#147a3d">"click"</span><span style="color:#1f2328">, event =&gt; {</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> button = event.target.closest(</span><span style="color:#147a3d">"[data-filter]"</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (!button) </span><span style="color:#6638d1;font-weight:bold">return</span><span style="color:#1f2328">;</span>
+ 
+<span style="color:#1f2328">  activeFilter = button.dataset.filter;</span>
+ 
+<span style="color:#1f2328">  document.querySelectorAll(</span><span style="color:#147a3d">".filter"</span><span style="color:#1f2328">).forEach(filter =&gt; {</span>
+<span style="color:#1f2328">    filter.classList.toggle(</span><span style="color:#147a3d">"active"</span><span style="color:#1f2328">, filter === button);</span>
+<span style="color:#1f2328">  });</span>
+ 
+<span style="color:#1f2328">  renderApps();</span>
+<span style="color:#1f2328">});</span>
+ 
+<span style="color:#1f2328">document.addEventListener(</span><span style="color:#147a3d">"click"</span><span style="color:#1f2328">, event =&gt; {</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> favouriteButton = event.target.closest(</span><span style="color:#147a3d">"[data-favourite]"</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (!favouriteButton) </span><span style="color:#6638d1;font-weight:bold">return</span><span style="color:#1f2328">;</span>
+ 
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> name = favouriteButton.dataset.favourite;</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">let</span><span style="color:#1f2328"> favourites = getFavourites();</span>
+ 
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (favourites.includes(name)) {</span>
+<span style="color:#1f2328">    favourites = favourites.filter(item =&gt; item !== name);</span>
+<span style="color:#1f2328">  } </span><span style="color:#6638d1;font-weight:bold">else</span><span style="color:#1f2328"> {</span>
+<span style="color:#1f2328">    favourites.push(name);</span>
+<span style="color:#1f2328">  }</span>
+ 
+<span style="color:#1f2328">  saveFavourites(favourites);</span>
+<span style="color:#1f2328">  renderApps();</span>
+<span style="color:#1f2328">});</span>
+ 
+<span style="color:#858c99">// MOBILE MENU</span>
+ 
+<span style="color:#1f2328">document.getElementById(</span><span style="color:#147a3d">"menuToggle"</span><span style="color:#1f2328">).addEventListener(</span><span style="color:#147a3d">"click"</span><span style="color:#1f2328">, () =&gt; {</span>
+<span style="color:#1f2328">  document.getElementById(</span><span style="color:#147a3d">"mainNav"</span><span style="color:#1f2328">).classList.toggle(</span><span style="color:#147a3d">"open"</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">});</span>
+ 
+<span style="color:#1f2328">document.querySelectorAll(</span><span style="color:#147a3d">"#mainNav a"</span><span style="color:#1f2328">).forEach(link =&gt; {</span>
+<span style="color:#1f2328">  link.addEventListener(</span><span style="color:#147a3d">"click"</span><span style="color:#1f2328">, () =&gt; {</span>
+<span style="color:#1f2328">    document.getElementById(</span><span style="color:#147a3d">"mainNav"</span><span style="color:#1f2328">).classList.remove(</span><span style="color:#147a3d">"open"</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">  });</span>
+<span style="color:#1f2328">});</span>
+ 
+<span style="color:#858c99">// MODAL SYSTEM</span>
+ 
+<span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> modal = document.getElementById(</span><span style="color:#147a3d">"appModal"</span><span style="color:#1f2328">);</span>
+<span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> modalContent = document.getElementById(</span><span style="color:#147a3d">"modalContent"</span><span style="color:#1f2328">);</span>
+ 
+<span style="color:#6638d1;font-weight:bold">function</span><span style="color:#1f2328"> openModal(content) {</span>
+<span style="color:#1f2328">  modalContent.innerHTML = content;</span>
+<span style="color:#1f2328">  modal.classList.add(</span><span style="color:#147a3d">"show"</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">  modal.setAttribute(</span><span style="color:#147a3d">"aria-hidden"</span><span style="color:#1f2328">, </span><span style="color:#147a3d">"false"</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">}</span>
+ 
+<span style="color:#6638d1;font-weight:bold">function</span><span style="color:#1f2328"> closeModal() {</span>
+<span style="color:#1f2328">  modal.classList.remove(</span><span style="color:#147a3d">"show"</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">  modal.setAttribute(</span><span style="color:#147a3d">"aria-hidden"</span><span style="color:#1f2328">, </span><span style="color:#147a3d">"true"</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">}</span>
+ 
+<span style="color:#1f2328">document.getElementById(</span><span style="color:#147a3d">"modalClose"</span><span style="color:#1f2328">).addEventListener(</span><span style="color:#147a3d">"click"</span><span style="color:#1f2328">, closeModal);</span>
+ 
+<span style="color:#1f2328">modal.addEventListener(</span><span style="color:#147a3d">"click"</span><span style="color:#1f2328">, event =&gt; {</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (event.target === modal) closeModal();</span>
+<span style="color:#1f2328">});</span>
+ 
+<span style="color:#1f2328">document.addEventListener(</span><span style="color:#147a3d">"keydown"</span><span style="color:#1f2328">, event =&gt; {</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (event.key === </span><span style="color:#147a3d">"Escape"</span><span style="color:#1f2328">) closeModal();</span>
+<span style="color:#1f2328">});</span>
+ 
+<span style="color:#858c99">// MINI APP BUTTONS</span>
+ 
+<span style="color:#1f2328">document.addEventListener(</span><span style="color:#147a3d">"click"</span><span style="color:#1f2328">, event =&gt; {</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> button = event.target.closest(</span><span style="color:#147a3d">"[data-open]"</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (!button) </span><span style="color:#6638d1;font-weight:bold">return</span><span style="color:#1f2328">;</span>
+ 
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> app = button.dataset.open;</span>
+ 
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (app === </span><span style="color:#147a3d">"calculator"</span><span style="color:#1f2328">) showCalculator();</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (app === </span><span style="color:#147a3d">"notes"</span><span style="color:#1f2328">) showNotes();</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (app === </span><span style="color:#147a3d">"converter"</span><span style="color:#1f2328">) showConverter();</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (app === </span><span style="color:#147a3d">"game"</span><span style="color:#1f2328">) showGame();</span>
+<span style="color:#1f2328">});</span>
+ 
+<span style="color:#858c99">// CALCULATOR</span>
+ 
+<span style="color:#6638d1;font-weight:bold">function</span><span style="color:#1f2328"> showCalculator() {</span>
+<span style="color:#1f2328">  openModal(</span><span style="color:#147a3d">`</span>
+<span style="color:#147a3d">    &lt;h2&gt;Calculator&lt;/h2&gt;</span>
+<span style="color:#147a3d">    &lt;div class="calculator-display" id="calcDisplay"&gt;0&lt;/div&gt;</span>
+<span style="color:#147a3d">    &lt;div class="calculator-grid"&gt;</span>
+<span style="color:#147a3d">      &lt;button data-calc="C"&gt;C&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button data-calc="("&gt;(&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button data-calc=")"&gt;)&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button class="operator" data-calc="/"&gt;÷&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button data-calc="7"&gt;7&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button data-calc="8"&gt;8&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button data-calc="9"&gt;9&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button class="operator" data-calc="*"&gt;×&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button data-calc="4"&gt;4&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button data-calc="5"&gt;5&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button data-calc="6"&gt;6&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button class="operator" data-calc="-"&gt;−&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button data-calc="1"&gt;1&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button data-calc="2"&gt;2&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button data-calc="3"&gt;3&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button class="operator" data-calc="+"&gt;+&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button data-calc="0"&gt;0&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button data-calc="."&gt;.&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button data-calc="DEL"&gt;⌫&lt;/button&gt;</span>
+<span style="color:#147a3d">      &lt;button class="operator" data-calc="="&gt;=&lt;/button&gt;</span>
+<span style="color:#147a3d">    &lt;/div&gt;</span>
+<span style="color:#147a3d">  `</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">}</span>
+ 
+<span style="color:#1f2328">document.addEventListener(</span><span style="color:#147a3d">"click"</span><span style="color:#1f2328">, event =&gt; {</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> button = event.target.closest(</span><span style="color:#147a3d">"[data-calc]"</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (!button) </span><span style="color:#6638d1;font-weight:bold">return</span><span style="color:#1f2328">;</span>
+ 
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> display = document.getElementById(</span><span style="color:#147a3d">"calcDisplay"</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (!display) </span><span style="color:#6638d1;font-weight:bold">return</span><span style="color:#1f2328">;</span>
+ 
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> value = button.dataset.calc;</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">let</span><span style="color:#1f2328"> current = display.textContent;</span>
+ 
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (value === </span><span style="color:#147a3d">"C"</span><span style="color:#1f2328">) {</span>
+<span style="color:#1f2328">    display.textContent = </span><span style="color:#147a3d">"0"</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">  } </span><span style="color:#6638d1;font-weight:bold">else</span><span style="color:#1f2328"> </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (value === </span><span style="color:#147a3d">"DEL"</span><span style="color:#1f2328">) {</span>
+<span style="color:#1f2328">    display.textContent = current.length &gt; </span><span style="color:#c25c05">1</span><span style="color:#1f2328"> ? current.slice(</span><span style="color:#c25c05">0</span><span style="color:#1f2328">, -</span><span style="color:#c25c05">1</span><span style="color:#1f2328">) : </span><span style="color:#147a3d">"0"</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">  } </span><span style="color:#6638d1;font-weight:bold">else</span><span style="color:#1f2328"> </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (value === </span><span style="color:#147a3d">"="</span><span style="color:#1f2328">) {</span>
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">try</span><span style="color:#1f2328"> {</span>
+<span style="color:#1f2328">      </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (!/^[</span><span style="color:#c25c05">0</span><span style="color:#1f2328">-</span><span style="color:#c25c05">9</span><span style="color:#1f2328">+\-*/().\s]+$/.test(current)) </span><span style="color:#6638d1;font-weight:bold">throw</span><span style="color:#1f2328"> </span><span style="color:#6638d1;font-weight:bold">new</span><span style="color:#1f2328"> Error();</span>
+ 
+<span style="color:#1f2328">      </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> result = Function(</span><span style="color:#147a3d">'"use strict"; return ('</span><span style="color:#1f2328"> + current + </span><span style="color:#147a3d">')'</span><span style="color:#1f2328">)();</span>
+ 
+<span style="color:#1f2328">      </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (!Number.isFinite(result)) </span><span style="color:#6638d1;font-weight:bold">throw</span><span style="color:#1f2328"> </span><span style="color:#6638d1;font-weight:bold">new</span><span style="color:#1f2328"> Error();</span>
+ 
+<span style="color:#1f2328">      display.textContent = String(Number(result.toFixed(</span><span style="color:#c25c05">8</span><span style="color:#1f2328">)));</span>
+<span style="color:#1f2328">    } </span><span style="color:#6638d1;font-weight:bold">catch</span><span style="color:#1f2328"> {</span>
+<span style="color:#1f2328">      display.textContent = </span><span style="color:#147a3d">"Error"</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">    }</span>
+<span style="color:#1f2328">  } </span><span style="color:#6638d1;font-weight:bold">else</span><span style="color:#1f2328"> {</span>
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (current === </span><span style="color:#147a3d">"0"</span><span style="color:#1f2328"> || current === </span><span style="color:#147a3d">"Error"</span><span style="color:#1f2328">) current = </span><span style="color:#147a3d">""</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">    display.textContent = current + value;</span>
+<span style="color:#1f2328">  }</span>
+<span style="color:#1f2328">});</span>
+ 
+<span style="color:#858c99">// NOTES</span>
+ 
+<span style="color:#6638d1;font-weight:bold">function</span><span style="color:#1f2328"> showNotes() {</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> savedNote = localStorage.getItem(</span><span style="color:#147a3d">"hubNotes"</span><span style="color:#1f2328">) || </span><span style="color:#147a3d">""</span><span style="color:#1f2328">;</span>
+ 
+<span style="color:#1f2328">  openModal(</span><span style="color:#147a3d">`</span>
+<span style="color:#147a3d">    &lt;h2&gt;My Notes&lt;/h2&gt;</span>
+<span style="color:#147a3d">    &lt;p style="color:#a4b0c3;font-size:13px;margin-bottom:12px;"&gt;</span>
+<span style="color:#147a3d">      Notes are saved in this browser on this device.</span>
+<span style="color:#147a3d">    &lt;/p&gt;</span>
+<span style="color:#147a3d">    &lt;textarea id="notesText" placeholder="Write something here..."&gt;&lt;/textarea&gt;</span>
+<span style="color:#147a3d">    &lt;button class="modal-action" id="saveNotes"&gt;Save notes&lt;/button&gt;</span>
+<span style="color:#147a3d">    &lt;p id="notesStatus" style="color:#a99fff;font-size:12px;margin-top:12px;"&gt;&lt;/p&gt;</span>
+<span style="color:#147a3d">  `</span><span style="color:#1f2328">);</span>
+ 
+<span style="color:#1f2328">  document.getElementById(</span><span style="color:#147a3d">"notesText"</span><span style="color:#1f2328">).value = savedNote;</span>
+ 
+<span style="color:#1f2328">  document.getElementById(</span><span style="color:#147a3d">"saveNotes"</span><span style="color:#1f2328">).addEventListener(</span><span style="color:#147a3d">"click"</span><span style="color:#1f2328">, () =&gt; {</span>
+<span style="color:#1f2328">    localStorage.setItem(</span>
+<span style="color:#1f2328">      </span><span style="color:#147a3d">"hubNotes"</span><span style="color:#1f2328">,</span>
+<span style="color:#1f2328">      document.getElementById(</span><span style="color:#147a3d">"notesText"</span><span style="color:#1f2328">).value</span>
+<span style="color:#1f2328">    );</span>
+ 
+<span style="color:#1f2328">    document.getElementById(</span><span style="color:#147a3d">"notesStatus"</span><span style="color:#1f2328">).textContent =</span>
+<span style="color:#1f2328">      </span><span style="color:#147a3d">"Your notes have been saved on this device."</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">  });</span>
+<span style="color:#1f2328">}</span>
+ 
+<span style="color:#858c99">// UNIT CONVERTER</span>
+ 
+<span style="color:#6638d1;font-weight:bold">function</span><span style="color:#1f2328"> showConverter() {</span>
+<span style="color:#1f2328">  openModal(</span><span style="color:#147a3d">`</span>
+<span style="color:#147a3d">    &lt;h2&gt;Unit Converter&lt;/h2&gt;</span>
+<span style="color:#147a3d">    &lt;label for="convertValue"&gt;Enter a value&lt;/label&gt;</span>
+<span style="color:#147a3d">    &lt;input id="convertValue" type="number" placeholder="Enter a number"&gt;</span>
+<span style="color:#147a3d">    &lt;label for="convertType"&gt;Choose conversion&lt;/label&gt;</span>
+<span style="color:#147a3d">    &lt;select id="convertType"&gt;</span>
+<span style="color:#147a3d">      &lt;option value="km"&gt;Kilometres to miles&lt;/option&gt;</span>
+<span style="color:#147a3d">      &lt;option value="miles"&gt;Miles to kilometres&lt;/option&gt;</span>
+<span style="color:#147a3d">      &lt;option value="kg"&gt;Kilograms to pounds&lt;/option&gt;</span>
+<span style="color:#147a3d">      &lt;option value="pounds"&gt;Pounds to kilograms&lt;/option&gt;</span>
+<span style="color:#147a3d">      &lt;option value="cm"&gt;Centimetres to inches&lt;/option&gt;</span>
+<span style="color:#147a3d">      &lt;option value="inches"&gt;Inches to centimetres&lt;/option&gt;</span>
+<span style="color:#147a3d">    &lt;/select&gt;</span>
+<span style="color:#147a3d">    &lt;button class="modal-action" id="convertButton"&gt;Convert&lt;/button&gt;</span>
+<span style="color:#147a3d">    &lt;p id="convertResult" style="margin-top:16px;color:#c0baff;"&gt;&lt;/p&gt;</span>
+<span style="color:#147a3d">  `</span><span style="color:#1f2328">);</span>
+ 
+<span style="color:#1f2328">  document.getElementById(</span><span style="color:#147a3d">"convertButton"</span><span style="color:#1f2328">).addEventListener(</span><span style="color:#147a3d">"click"</span><span style="color:#1f2328">, () =&gt; {</span>
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> input = document.getElementById(</span><span style="color:#147a3d">"convertValue"</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> value = Number(input.value);</span>
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> type = document.getElementById(</span><span style="color:#147a3d">"convertType"</span><span style="color:#1f2328">).value;</span>
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> result = document.getElementById(</span><span style="color:#147a3d">"convertResult"</span><span style="color:#1f2328">);</span>
+ 
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (input.value.trim() === </span><span style="color:#147a3d">""</span><span style="color:#1f2328"> || !Number.isFinite(value)) {</span>
+<span style="color:#1f2328">      result.textContent = </span><span style="color:#147a3d">"Please enter a valid number."</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">      </span><span style="color:#6638d1;font-weight:bold">return</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">    }</span>
+ 
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> conversions = {</span>
+<span style="color:#1f2328">      km: [value * </span><span style="color:#c25c05">0.621371</span><span style="color:#1f2328">, </span><span style="color:#147a3d">"miles"</span><span style="color:#1f2328">],</span>
+<span style="color:#1f2328">      miles: [value * </span><span style="color:#c25c05">1.60934</span><span style="color:#1f2328">, </span><span style="color:#147a3d">"kilometres"</span><span style="color:#1f2328">],</span>
+<span style="color:#1f2328">      kg: [value * </span><span style="color:#c25c05">2.20462</span><span style="color:#1f2328">, </span><span style="color:#147a3d">"pounds"</span><span style="color:#1f2328">],</span>
+<span style="color:#1f2328">      pounds: [value / </span><span style="color:#c25c05">2.20462</span><span style="color:#1f2328">, </span><span style="color:#147a3d">"kilograms"</span><span style="color:#1f2328">],</span>
+<span style="color:#1f2328">      cm: [value / </span><span style="color:#c25c05">2.54</span><span style="color:#1f2328">, </span><span style="color:#147a3d">"inches"</span><span style="color:#1f2328">],</span>
+<span style="color:#1f2328">      inches: [value * </span><span style="color:#c25c05">2.54</span><span style="color:#1f2328">, </span><span style="color:#147a3d">"centimetres"</span><span style="color:#1f2328">]</span>
+<span style="color:#1f2328">    };</span>
+ 
+<span style="color:#1f2328">    result.textContent =</span>
+<span style="color:#1f2328">      </span><span style="color:#147a3d">`${value} = ${conversions[type][0].toFixed(3)} ${conversions[type][1]}`</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">  });</span>
+<span style="color:#1f2328">}</span>
+ 
+<span style="color:#858c99">// TIC-TAC-TOE</span>
+ 
+<span style="color:#6638d1;font-weight:bold">function</span><span style="color:#1f2328"> showGame() {</span>
+<span style="color:#1f2328">  openModal(</span><span style="color:#147a3d">`</span>
+<span style="color:#147a3d">    &lt;h2&gt;Tic-Tac-Toe&lt;/h2&gt;</span>
+<span style="color:#147a3d">    &lt;p id="gameStatus" style="color:#b9c4d6;"&gt;Player X's turn&lt;/p&gt;</span>
+<span style="color:#147a3d">    &lt;div class="game-board" id="gameBoard"&gt;</span>
+<span style="color:#147a3d">      ${Array.from({ length: 9 }, (_, i) =&gt;</span>
+<span style="color:#147a3d">        `</span><span style="color:#1f2328">&lt;button </span><span style="color:#6638d1;font-weight:bold">class</span><span style="color:#1f2328">=</span><span style="color:#147a3d">"game-cell"</span><span style="color:#1f2328"> data-cell=</span><span style="color:#147a3d">"${i}"</span><span style="color:#1f2328">&gt;&lt;/button&gt;</span><span style="color:#147a3d">`</span>
+<span style="color:#147a3d">      ).join("")}</span>
+<span style="color:#147a3d">    &lt;/div&gt;</span>
+<span style="color:#147a3d">    &lt;button class="modal-action" id="resetGame"&gt;Restart game&lt;/button&gt;</span>
+<span style="color:#147a3d">  `</span><span style="color:#1f2328">);</span>
+ 
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">let</span><span style="color:#1f2328"> board = Array(</span><span style="color:#c25c05">9</span><span style="color:#1f2328">).fill(</span><span style="color:#147a3d">""</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">let</span><span style="color:#1f2328"> player = </span><span style="color:#147a3d">"X"</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">let</span><span style="color:#1f2328"> finished = </span><span style="color:#6638d1;font-weight:bold">false</span><span style="color:#1f2328">;</span>
+ 
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> winningLines = [</span>
+<span style="color:#1f2328">    [</span><span style="color:#c25c05">0</span><span style="color:#1f2328">, </span><span style="color:#c25c05">1</span><span style="color:#1f2328">, </span><span style="color:#c25c05">2</span><span style="color:#1f2328">], [</span><span style="color:#c25c05">3</span><span style="color:#1f2328">, </span><span style="color:#c25c05">4</span><span style="color:#1f2328">, </span><span style="color:#c25c05">5</span><span style="color:#1f2328">], [</span><span style="color:#c25c05">6</span><span style="color:#1f2328">, </span><span style="color:#c25c05">7</span><span style="color:#1f2328">, </span><span style="color:#c25c05">8</span><span style="color:#1f2328">],</span>
+<span style="color:#1f2328">    [</span><span style="color:#c25c05">0</span><span style="color:#1f2328">, </span><span style="color:#c25c05">3</span><span style="color:#1f2328">, </span><span style="color:#c25c05">6</span><span style="color:#1f2328">], [</span><span style="color:#c25c05">1</span><span style="color:#1f2328">, </span><span style="color:#c25c05">4</span><span style="color:#1f2328">, </span><span style="color:#c25c05">7</span><span style="color:#1f2328">], [</span><span style="color:#c25c05">2</span><span style="color:#1f2328">, </span><span style="color:#c25c05">5</span><span style="color:#1f2328">, </span><span style="color:#c25c05">8</span><span style="color:#1f2328">],</span>
+<span style="color:#1f2328">    [</span><span style="color:#c25c05">0</span><span style="color:#1f2328">, </span><span style="color:#c25c05">4</span><span style="color:#1f2328">, </span><span style="color:#c25c05">8</span><span style="color:#1f2328">], [</span><span style="color:#c25c05">2</span><span style="color:#1f2328">, </span><span style="color:#c25c05">4</span><span style="color:#1f2328">, </span><span style="color:#c25c05">6</span><span style="color:#1f2328">]</span>
+<span style="color:#1f2328">  ];</span>
+ 
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">function</span><span style="color:#1f2328"> reset() {</span>
+<span style="color:#1f2328">    board = Array(</span><span style="color:#c25c05">9</span><span style="color:#1f2328">).fill(</span><span style="color:#147a3d">""</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">    player = </span><span style="color:#147a3d">"X"</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">    finished = </span><span style="color:#6638d1;font-weight:bold">false</span><span style="color:#1f2328">;</span>
+ 
+<span style="color:#1f2328">    document.querySelectorAll(</span><span style="color:#147a3d">".game-cell"</span><span style="color:#1f2328">).forEach(cell =&gt; {</span>
+<span style="color:#1f2328">      cell.textContent = </span><span style="color:#147a3d">""</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">    });</span>
+ 
+<span style="color:#1f2328">    document.getElementById(</span><span style="color:#147a3d">"gameStatus"</span><span style="color:#1f2328">).textContent = </span><span style="color:#147a3d">"Player X's turn"</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">  }</span>
+ 
+<span style="color:#1f2328">  document.getElementById(</span><span style="color:#147a3d">"gameBoard"</span><span style="color:#1f2328">).addEventListener(</span><span style="color:#147a3d">"click"</span><span style="color:#1f2328">, event =&gt; {</span>
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> cell = event.target.closest(</span><span style="color:#147a3d">"[data-cell]"</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (!cell || finished) </span><span style="color:#6638d1;font-weight:bold">return</span><span style="color:#1f2328">;</span>
+ 
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> index = Number(cell.dataset.cell);</span>
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (board[index]) </span><span style="color:#6638d1;font-weight:bold">return</span><span style="color:#1f2328">;</span>
+ 
+<span style="color:#1f2328">    board[index] = player;</span>
+<span style="color:#1f2328">    cell.textContent = player;</span>
+ 
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> won = winningLines.some(line =&gt;</span>
+<span style="color:#1f2328">      line.every(position =&gt; board[position] === player)</span>
+<span style="color:#1f2328">    );</span>
+ 
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (won) {</span>
+<span style="color:#1f2328">      document.getElementById(</span><span style="color:#147a3d">"gameStatus"</span><span style="color:#1f2328">).textContent =</span>
+<span style="color:#1f2328">        </span><span style="color:#147a3d">`Player ${player} wins!`</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">      finished = </span><span style="color:#6638d1;font-weight:bold">true</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">      </span><span style="color:#6638d1;font-weight:bold">return</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">    }</span>
+ 
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (board.every(Boolean)) {</span>
+<span style="color:#1f2328">      document.getElementById(</span><span style="color:#147a3d">"gameStatus"</span><span style="color:#1f2328">).textContent = </span><span style="color:#147a3d">"It's a draw!"</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">      finished = </span><span style="color:#6638d1;font-weight:bold">true</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">      </span><span style="color:#6638d1;font-weight:bold">return</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">    }</span>
+ 
+<span style="color:#1f2328">    player = player === </span><span style="color:#147a3d">"X"</span><span style="color:#1f2328"> ? </span><span style="color:#147a3d">"O"</span><span style="color:#1f2328"> : </span><span style="color:#147a3d">"X"</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">    document.getElementById(</span><span style="color:#147a3d">"gameStatus"</span><span style="color:#1f2328">).textContent =</span>
+<span style="color:#1f2328">      </span><span style="color:#147a3d">`Player ${player}'s turn`</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">  });</span>
+ 
+<span style="color:#1f2328">  document.getElementById(</span><span style="color:#147a3d">"resetGame"</span><span style="color:#1f2328">).addEventListener(</span><span style="color:#147a3d">"click"</span><span style="color:#1f2328">, reset);</span>
+<span style="color:#1f2328">}</span>
+ 
+<span style="color:#858c99">// DOWNLOADER LINK CHECK</span>
+ 
+<span style="color:#1f2328">document.getElementById(</span><span style="color:#147a3d">"downloadForm"</span><span style="color:#1f2328">).addEventListener(</span><span style="color:#147a3d">"submit"</span><span style="color:#1f2328">, event =&gt; {</span>
+<span style="color:#1f2328">  event.preventDefault();</span>
+ 
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> input = document.getElementById(</span><span style="color:#147a3d">"mediaLink"</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> message = document.getElementById(</span><span style="color:#147a3d">"downloadMessage"</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> link = input.value.trim();</span>
+ 
+<span style="color:#1f2328">  </span><span style="color:#6638d1;font-weight:bold">try</span><span style="color:#1f2328"> {</span>
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">const</span><span style="color:#1f2328"> url = </span><span style="color:#6638d1;font-weight:bold">new</span><span style="color:#1f2328"> URL(link);</span>
+ 
+<span style="color:#1f2328">    </span><span style="color:#6638d1;font-weight:bold">if</span><span style="color:#1f2328"> (url.protocol !== </span><span style="color:#147a3d">"https:"</span><span style="color:#1f2328"> &amp;&amp; url.protocol !== </span><span style="color:#147a3d">"http:"</span><span style="color:#1f2328">) {</span>
+<span style="color:#1f2328">      </span><span style="color:#6638d1;font-weight:bold">throw</span><span style="color:#1f2328"> </span><span style="color:#6638d1;font-weight:bold">new</span><span style="color:#1f2328"> Error(</span><span style="color:#147a3d">"Invalid link"</span><span style="color:#1f2328">);</span>
+<span style="color:#1f2328">    }</span>
+ 
+<span style="color:#1f2328">    message.textContent =</span>
+<span style="color:#1f2328">      </span><span style="color:#147a3d">"The link format is valid. Actual downloading is not connected yet; that requires our secure backend and platform-compatible support."</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">  } </span><span style="color:#6638d1;font-weight:bold">catch</span><span style="color:#1f2328"> {</span>
+<span style="color:#1f2328">    message.textContent = </span><span style="color:#147a3d">"Please enter a valid web link beginning with https://"</span><span style="color:#1f2328">;</span>
+<span style="color:#1f2328">  }</span>
+<span style="color:#1f2328">});</span>
+ 
+<span style="color:#858c99">// START THE HUB</span>
+ 
+<span style="color:#1f2328">renderApps();</span></pre>
+<p style="margin:22pt 0 0;padding-top:8pt;border-top:0.75pt solid #dcdce8;text-align:center;font-size:10pt"><b style="color:#6b54e6">WriteCode</b> <span style="color:#6b727c">&nbsp;·&nbsp; writecode.in</span></p>
+</div>
+</body>
+</html>

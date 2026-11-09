@@ -825,7 +825,6 @@ function openConverter() {
 // ======================================
 // TIC TAC TOE
 // ======================================
-
 function openGame() {
   let board = Array(9).fill("");
   let currentPlayer = "X";
@@ -884,6 +883,7 @@ function openGame() {
 
   document.getElementById("restartGame").addEventListener("click", openGame);
 }
+
 
 // ======================================
 // OPEN MINI APPS

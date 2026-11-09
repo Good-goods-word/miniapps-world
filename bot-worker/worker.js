@@ -1,0 +1,13 @@
+
+{
+  "$schema": "https://schema.cloudflare.com/wrangler/config-schema.json",
+  "name": "miniapps-telegram-bot",
+  "main": "worker.js",
+  "compatibility_date": "2026-11-09",
+  "kv_namespaces": [
+    {
+      "binding": "CHAT_MEMORY",
+      "id": "e68d281224e44a8291eb33e0f782b927"
+    }
+  ]
+}

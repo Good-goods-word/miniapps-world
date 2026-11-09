@@ -4,26 +4,44 @@ const WEBSITE_URL = "https://miniapps-world.lildavid5h.workers.dev/";
 
 const AI_MODEL = "@cf/zai-org/glm-4.7-flash";
 const WHISPER_MODEL = "@cf/openai/whisper-large-v3-turbo";
+const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
 
 const MAX_HISTORY_MESSAGES = 12;
 const MEMORY_TTL = 60 * 60 * 24 * 30;
 const MAX_VOICE_SIZE = 20 * 1024 * 1024;
 
 const SYSTEM_PROMPT = `
-You are My Mini Apps Hub Assistant, a friendly and helpful AI assistant.
+You are My Mini Apps Hub Assistant, a friendly, intelligent and helpful AI assistant.
 
-You can answer questions, explain things, help with writing,
-ideas, technology, learning, and everyday tasks.
+LANGUAGE AND COMMUNICATION:
+- Understand and communicate naturally in Nigerian Pidgin English.
+- Understand Nigerian English, including common Nigerian expressions and slang.
+- Understand standard English and other languages.
+- Reply in the language or style the user uses.
+- If a user speaks Pidgin, respond naturally in Pidgin.
+- Do not mock, misunderstand or unnecessarily correct Nigerian expressions.
+- Be patient with spelling mistakes, informal grammar and voice transcription errors.
+- If something is unclear, politely ask what the user means.
 
-Be conversational, clear, respectful, and useful.
-Keep answers reasonably concise unless the user requests detail.
-You are part of My Mini Apps Hub.
-Do not claim to perform actions you cannot actually perform.
+YOUR ABILITIES:
+- Answer questions and explain things.
+- Help with writing, ideas, technology and learning.
+- Assist with everyday tasks and problem-solving.
+- Have natural conversations and remember relevant conversation context.
+- Help users understand how to use My Mini Apps Hub.
+
+BEHAVIOUR:
+- Be conversational, clear, respectful and useful.
+- Keep answers reasonably concise unless the user requests detail.
+- Explain technical instructions in simple steps.
+- Never pretend you have performed an action you cannot perform.
+- Never claim that an unsupported feature is available.
+- You are part of My Mini Apps Hub.
 `;
 
 export default {
   async fetch(request, env) {
-    // Health check
+    // HEALTH CHECK
     if (request.method === "GET") {
       return Response.json({
         name: "My Mini Apps Hub Telegram Bot",
@@ -37,7 +55,7 @@ export default {
       });
     }
 
-    // Verify Telegram webhook secret
+    // VERIFY TELEGRAM WEBHOOK SECRET
     if (
       env.WEBHOOK_SECRET &&
       request.headers.get("X-Telegram-Bot-Api-Secret-Token") !==
@@ -59,7 +77,7 @@ export default {
     }
 
     try {
-      // Handle button callbacks
+      // HANDLE BUTTON CALLBACKS
       if (update.callback_query) {
         await answerCallback(update.callback_query, env);
         return new Response("OK");
@@ -127,7 +145,7 @@ export default {
         );
       }
 
-      // HANDLE EMPTY OR UNSUPPORTED MESSAGES
+      // HANDLE EMPTY MESSAGES
       if (!text) {
         await sendMessage(
           chatId,
@@ -143,17 +161,65 @@ export default {
         .split("@")[0]
         .toLowerCase();
 
+      // TEMPORARY ONE-TIME VISION LICENCE ACCEPTANCE
+      // Remove this command after successful acceptance.
+      if (command === "/acceptvision") {
+        if (!env.AI) {
+          throw new Error("Workers AI binding is missing.");
+        }
+
+        await sendMessage(
+          chatId,
+          "⏳ Sending the vision model acceptance request...",
+          env
+        );
+
+        try {
+          const result = await env.AI.run(VISION_MODEL, {
+            prompt: "agree"
+          });
+
+          console.log(
+            "Vision model acceptance response:",
+            result
+          );
+
+          await sendMessage(
+            chatId,
+            "✅ The vision model request completed. We can now check whether image understanding is available.",
+            env
+          );
+        } catch (error) {
+          console.error(
+            "Vision model acceptance error:",
+            error
+          );
+
+          await sendMessage(
+            chatId,
+            `❌ The vision model request failed: ${error.message}
+
+Please check the Cloudflare Worker logs before trying again.`,
+            env
+          );
+        }
+
+        return new Response("OK");
+      }
+
       // START
       if (command === "/start") {
         await sendMessage(
           chatId,
           `Welcome to My Mini Apps Hub! 🚀
 
-I'm your personal AI assistant.
+I'm your AI assistant.
 
-You can chat with me naturally, ask questions, get help with writing, explore useful tools, and send me voice notes.
+You can chat with me naturally, ask questions, get help with writing, explore useful tools and send me voice notes.
 
-Try sending me a message or voice note!
+I understand English and Nigerian Pidgin.
+
+Try sending me a message!
 
 Use /help to see my commands.`,
           env
@@ -176,7 +242,9 @@ Use /help to see my commands.`,
 /about — About this bot
 /forget — Clear your saved conversation
 
-You can send normal text messages or voice notes to chat with your AI assistant. 🤖`,
+You can send normal text messages or Telegram voice notes.
+
+You can chat in English, Nigerian English or Pidgin. 🤖`,
           env
         );
 
@@ -234,6 +302,7 @@ AI chat: Enabled
 Voice note transcription: Enabled
 Conversation memory: Enabled
 Memory expiry: 30 days
+Language support: English and Nigerian Pidgin
 
 Use /forget whenever you want to clear your saved conversation.`,
           env
@@ -248,9 +317,9 @@ Use /forget whenever you want to clear your saved conversation.`,
           chatId,
           `ABOUT MY MINI APPS HUB 🚀
 
-Your personal gateway to useful digital tools, smart assistance, and mini applications.
+Your personal gateway to useful digital tools, smart assistance and mini applications.
 
-Explore tools, ask questions, and enjoy a growing collection of digital services.
+Explore tools, ask questions and enjoy a growing collection of digital services.
 
 ONE HUB. MANY POSSIBILITIES.`,
           env
@@ -295,11 +364,23 @@ ONE HUB. MANY POSSIBILITIES.`,
       }
 
       // PROCESS AI CHAT
-      await sendMessage(chatId, "Thinking... 🤔", env);
+      await sendMessage(
+        chatId,
+        "Thinking... 🤔",
+        env
+      );
 
-      const answer = await getAIReply(text, userId, env);
+      const answer = await getAIReply(
+        text,
+        userId,
+        env
+      );
 
-      await sendLongMessage(chatId, answer, env);
+      await sendLongMessage(
+        chatId,
+        answer,
+        env
+      );
 
       return new Response("OK");
 
@@ -327,38 +408,45 @@ ONE HUB. MANY POSSIBILITIES.`,
 // ==========================================
 
 async function transcribeTelegramVoice(fileId, env) {
-  // Get Telegram file information
   const infoResponse = await fetch(
     `${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/getFile?file_id=${encodeURIComponent(fileId)}`
   );
 
   if (!infoResponse.ok) {
-    throw new Error("Could not get voice note information from Telegram.");
+    throw new Error(
+      "Could not get voice note information from Telegram."
+    );
   }
 
   const info = await infoResponse.json();
 
   if (!info.ok || !info.result?.file_path) {
-    throw new Error("Telegram did not return a valid voice file.");
+    throw new Error(
+      "Telegram did not return a valid voice file."
+    );
   }
 
-  // Download the voice note
+  // DOWNLOAD VOICE NOTE
   const fileUrl =
     `${TELEGRAM_API}/file/bot${env.TELEGRAM_BOT_TOKEN}/${info.result.file_path}`;
 
   const audioResponse = await fetch(fileUrl);
 
   if (!audioResponse.ok) {
-    throw new Error("Could not download the Telegram voice note.");
+    throw new Error(
+      "Could not download the Telegram voice note."
+    );
   }
 
   const audioBuffer = await audioResponse.arrayBuffer();
 
   if (audioBuffer.byteLength > MAX_VOICE_SIZE) {
-    throw new Error("Voice note exceeds the 20 MB download limit.");
+    throw new Error(
+      "Voice note exceeds the 20 MB download limit."
+    );
   }
 
-  // Convert audio bytes to Base64 for Whisper
+  // CONVERT AUDIO TO BASE64
   const bytes = new Uint8Array(audioBuffer);
   let binary = "";
 
@@ -373,7 +461,7 @@ async function transcribeTelegramVoice(fileId, env) {
 
   const audioBase64 = btoa(binary);
 
-  // Transcribe using Cloudflare Workers AI
+  // TRANSCRIBE USING WHISPER
   const result = await env.AI.run(WHISPER_MODEL, {
     audio: audioBase64,
     task: "transcribe"
@@ -386,7 +474,9 @@ async function transcribeTelegramVoice(fileId, env) {
   ).trim();
 
   if (!transcript) {
-    throw new Error("Whisper could not produce a transcription.");
+    throw new Error(
+      "Whisper could not produce a transcription."
+    );
   }
 
   return transcript;
@@ -399,16 +489,20 @@ async function transcribeTelegramVoice(fileId, env) {
 
 async function getAIReply(userText, userId, env) {
   if (!env.AI) {
-    throw new Error("Cloudflare Workers AI binding is missing.");
+    throw new Error(
+      "Cloudflare Workers AI binding is missing."
+    );
   }
 
   if (!env.CHAT_MEMORY) {
-    throw new Error("CHAT_MEMORY KV binding is missing.");
+    throw new Error(
+      "CHAT_MEMORY KV binding is missing."
+    );
   }
 
   const memoryKey = `user:${userId}`;
 
-  // Load saved conversation
+  // LOAD SAVED CONVERSATION
   let history = [];
 
   const saved = await env.CHAT_MEMORY.get(memoryKey);
@@ -426,11 +520,14 @@ async function getAIReply(userText, userId, env) {
         );
       }
     } catch (error) {
-      console.error("Memory loading error:", error);
+      console.error(
+        "Memory loading error:",
+        error
+      );
     }
   }
 
-  // Prepare messages for AI
+  // PREPARE AI MESSAGES
   const messages = [
     {
       role: "system",
@@ -451,14 +548,17 @@ async function getAIReply(userText, userId, env) {
       max_tokens: 800
     });
   } catch (error) {
-    console.error("Cloudflare Workers AI error:", error);
+    console.error(
+      "Cloudflare Workers AI error:",
+      error
+    );
 
     throw new Error(
       `Cloudflare AI request failed: ${error.message}`
     );
   }
 
-  // Extract AI response
+  // EXTRACT AI RESPONSE
   const answer = (
     result?.response ||
     result?.output_text ||
@@ -467,14 +567,17 @@ async function getAIReply(userText, userId, env) {
   ).trim();
 
   if (!answer) {
-    console.error("Cloudflare AI returned no text:", result);
+    console.error(
+      "Cloudflare AI returned no text:",
+      result
+    );
 
     throw new Error(
       "Cloudflare AI returned an empty response."
     );
   }
 
-  // Save conversation
+  // SAVE CONVERSATION
   const updatedHistory = [
     ...history,
     {

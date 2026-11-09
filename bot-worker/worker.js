@@ -319,8 +319,9 @@ async function getAIReply(userText, userId, env) {
 
   try {
     result = await env.AI.run(AI_MODEL, {
-      messages,
-      max_tokens: 1200
+  messages,
+  max_tokens: 800
+});
     });
   } catch (error) {
     console.error("Cloudflare Workers AI error:", error);

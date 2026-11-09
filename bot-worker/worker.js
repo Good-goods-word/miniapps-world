@@ -230,25 +230,42 @@ ONE HUB. MANY POSSIBILITIES.`,
   }
 };
 
+
 async function getAIReply(userText, userId, env) {
+  // Check required configuration
+  if (!env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY is missing from Cloudflare secrets.");
+  }
+
+  if (!env.CHAT_MEMORY) {
+    throw new Error("CHAT_MEMORY KV binding is missing.");
+  }
+
   const memoryKey = `user:${userId}`;
 
+  // Load conversation history
   let history = [];
   const saved = await env.CHAT_MEMORY.get(memoryKey);
 
   if (saved) {
     try {
-      history = JSON.parse(saved);
-    } catch {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        history = parsed;
+      }
+    } catch (error) {
+      console.error("Memory loading error:", error);
       history = [];
     }
   }
 
+  // Prepare conversation
   const input = [
     ...history,
     { role: "user", content: userText }
   ];
 
+  // Request AI response
   const response = await fetch(OPENAI_API, {
     method: "POST",
     headers: {
@@ -262,13 +279,32 @@ async function getAIReply(userText, userId, env) {
     })
   });
 
-  const data = await response.json();
+  let data;
 
-  if (!response.ok) {
-    console.error("OpenAI API error:", data);
-    throw new Error("AI request failed");
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(
+      `OpenAI returned an invalid response. HTTP status: ${response.status}`
+    );
   }
 
+  // Report the actual API error
+  if (!response.ok) {
+    const errorMessage =
+      data?.error?.message || "Unknown OpenAI API error";
+
+    console.error("OpenAI API error:", {
+      status: response.status,
+      message: errorMessage
+    });
+
+    throw new Error(
+      `OpenAI API error ${response.status}: ${errorMessage}`
+    );
+  }
+
+  // Extract AI answer
   const answer = (data.output || [])
     .flatMap(item => item.content || [])
     .filter(item => item.type === "output_text")
@@ -277,9 +313,11 @@ async function getAIReply(userText, userId, env) {
     .trim();
 
   if (!answer) {
-    throw new Error("The AI returned an empty response");
+    console.error("OpenAI returned no text:", data);
+    throw new Error("The AI returned an empty response.");
   }
 
+  // Save conversation history
   const updatedHistory = [
     ...input,
     { role: "assistant", content: answer }
@@ -293,6 +331,7 @@ async function getAIReply(userText, userId, env) {
 
   return answer;
 }
+
 
 async function sendMessage(chatId, text, env) {
   const response = await fetch(
@@ -310,17 +349,26 @@ async function sendMessage(chatId, text, env) {
   );
 
   if (!response.ok) {
-    console.error("Telegram send error:", await response.text());
+    console.error(
+      "Telegram send error:",
+      await response.text()
+    );
   }
 }
+
 
 async function sendLongMessage(chatId, text, env) {
   const limit = 4000;
 
   for (let i = 0; i < text.length; i += limit) {
-    await sendMessage(chatId, text.slice(i, i + limit), env);
+    await sendMessage(
+      chatId,
+      text.slice(i, i + limit),
+      env
+    );
   }
 }
+
 
 async function answerCallback(callback, env) {
   await fetch(

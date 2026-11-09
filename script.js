@@ -123,7 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
     modalTitle.textContent = title;
     modalBody.innerHTML = content;
 
-    modal.classList.add("active");
+    modal.classList.add("show");
     modal.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
   }
@@ -131,7 +131,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function hideModal() {
     if (!modal) return;
 
-    modal.classList.remove("active");
+    modal.classList.remove("show");
     modal.setAttribute("aria-hidden", "true");
     document.body.style.overflow = "";
   }

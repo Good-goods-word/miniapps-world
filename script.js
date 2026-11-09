@@ -412,7 +412,12 @@ async function openCalculator() {
 
       switch (mode) {
         case "calculate":
-          answer = math(question).evaluate().text();
+          const fixedExpression = question
+  .replace(/[×x]/g, "*")
+  .replace(/(\d+(?:\.\d+)?)%(?=\d|\()/g, "($1/100)*")
+  .replace(/(\d+(?:\.\d+)?)%(?!\d|\()/g, "($1/100)");
+
+answer = math(fixedExpression).evaluate().text();
           break;
 
         case "simplify":

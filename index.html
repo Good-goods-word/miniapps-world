@@ -1,0 +1,255 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#090d18">
+  <meta name="description" content="My Mini Apps Hub - Your home for useful apps, social platforms and digital tools.">
+  <title>My Mini Apps Hub</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+
+  <header class="topbar">
+    <a href="#" class="logo">
+      <span class="logo-icon">M</span>
+      <span>My Mini Apps <strong>Hub</strong></span>
+    </a>
+
+    <button class="menu-toggle" id="menuToggle" aria-label="Open menu">
+      ☰
+    </button>
+
+    <nav class="navigation" id="navigation">
+      <a href="#home">Home</a>
+      <a href="#platforms">Platforms</a>
+      <a href="#mini-apps">Mini Apps</a>
+      <a href="#downloader">Downloader</a>
+      <a href="#favorites">Favourites</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <section class="hero" id="home">
+      <div class="hero-content">
+        <span class="eyebrow">WELCOME TO YOUR DIGITAL WORLD</span>
+        <h1>Everything You Need.<br><span>One Hub.</span></h1>
+        <p>
+          Discover your favourite platforms, explore useful mini apps
+          and enjoy a smarter digital experience in one place.
+        </p>
+        <a href="#mini-apps" class="primary-btn">Explore Mini Apps →</a>
+      </div>
+      <div class="hero-decoration">✦</div>
+    </section>
+
+    <section class="search-section">
+      <input
+        type="search"
+        id="appSearch"
+        placeholder="Search for an app or tool..."
+        aria-label="Search apps"
+      >
+    </section>
+
+    <section class="section" id="platforms">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">DISCOVER</span>
+          <h2>External Platforms</h2>
+          <p>Access popular websites and services.</p>
+        </div>
+      </div>
+
+      <div class="category-filters" id="categoryFilters">
+        <button class="filter-btn active" data-category="all">All</button>
+        <button class="filter-btn" data-category="social">Social</button>
+        <button class="filter-btn" data-category="video">Video</button>
+        <button class="filter-btn" data-category="music">Music</button>
+        <button class="filter-btn" data-category="community">Community</button>
+      </div>
+
+      <div class="app-grid" id="externalApps">
+
+        <a class="app-card" href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer" data-name="Facebook" data-category="social">
+          <span class="app-icon">📘</span>
+          <h3>Facebook</h3>
+          <p>Connect and share.</p>
+        </a>
+
+        <a class="app-card" href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer" data-name="Instagram" data-category="social">
+          <span class="app-icon">📸</span>
+          <h3>Instagram</h3>
+          <p>Photos and stories.</p>
+        </a>
+
+        <a class="app-card" href="https://www.tiktok.com/" target="_blank" rel="noopener noreferrer" data-name="TikTok" data-category="video">
+          <span class="app-icon">🎵</span>
+          <h3>TikTok</h3>
+          <p>Short videos and trends.</p>
+        </a>
+
+        <a class="app-card" href="https://www.whatsapp.com/" target="_blank" rel="noopener noreferrer" data-name="WhatsApp" data-category="social">
+          <span class="app-icon">💬</span>
+          <h3>WhatsApp</h3>
+          <p>Messages and calls.</p>
+        </a>
+
+        <a class="app-card" href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer" data-name="YouTube" data-category="video">
+          <span class="app-icon">▶️</span>
+          <h3>YouTube</h3>
+          <p>Watch and discover videos.</p>
+        </a>
+
+        <a class="app-card" href="https://open.spotify.com/" target="_blank" rel="noopener noreferrer" data-name="Spotify" data-category="music">
+          <span class="app-icon">🎧</span>
+          <h3>Spotify</h3>
+          <p>Music and podcasts.</p>
+        </a>
+
+        <a class="app-card" href="https://x.com/" target="_blank" rel="noopener noreferrer" data-name="X" data-category="social">
+          <span class="app-icon">𝕏</span>
+          <h3>X</h3>
+          <p>What's happening now.</p>
+        </a>
+
+        <a class="app-card" href="https://www.threads.net/" target="_blank" rel="noopener noreferrer" data-name="Threads" data-category="social">
+          <span class="app-icon">🧵</span>
+          <h3>Threads</h3>
+          <p>Join conversations.</p>
+        </a>
+
+        <a class="app-card" href="https://web.telegram.org/" target="_blank" rel="noopener noreferrer" data-name="Telegram" data-category="social">
+          <span class="app-icon">✈️</span>
+          <h3>Telegram</h3>
+          <p>Chat and communities.</p>
+        </a>
+
+        <a class="app-card" href="https://www.snapchat.com/" target="_blank" rel="noopener noreferrer" data-name="Snapchat" data-category="social">
+          <span class="app-icon">👻</span>
+          <h3>Snapchat</h3>
+          <p>Share moments.</p>
+        </a>
+
+        <a class="app-card" href="https://www.pinterest.com/" target="_blank" rel="noopener noreferrer" data-name="Pinterest" data-category="community">
+          <span class="app-icon">📌</span>
+          <h3>Pinterest</h3>
+          <p>Find inspiration.</p>
+        </a>
+
+        <a class="app-card" href="https://www.reddit.com/" target="_blank" rel="noopener noreferrer" data-name="Reddit" data-category="community">
+          <span class="app-icon">👽</span>
+          <h3>Reddit</h3>
+          <p>Explore communities.</p>
+        </a>
+
+      </div>
+    </section>
+
+    <section class="section" id="mini-apps">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">BUILT FOR YOU</span>
+          <h2>Our Mini Apps</h2>
+          <p>Simple tools you can use right here in the hub.</p>
+        </div>
+      </div>
+
+      <div class="app-grid" id="miniApps">
+
+        <button class="app-card mini-card" data-app="calculator" data-name="Calculator">
+          <span class="app-icon">🧮</span>
+          <h3>Calculator</h3>
+          <p>Quick calculations.</p>
+        </button>
+
+        <button class="app-card mini-card" data-app="notes" data-name="Notes">
+          <span class="app-icon">📝</span>
+          <h3>Notes</h3>
+          <p>Write down your ideas.</p>
+        </button>
+
+        <button class="app-card mini-card" data-app="converter" data-name="Unit Converter">
+          <span class="app-icon">🔄</span>
+          <h3>Unit Converter</h3>
+          <p>Convert everyday units.</p>
+        </button>
+
+        <button class="app-card mini-card" data-app="game" data-name="Tic Tac Toe">
+          <span class="app-icon">🎮</span>
+          <h3>Tic Tac Toe</h3>
+          <p>Play a quick game.</p>
+        </button>
+
+      </div>
+    </section>
+
+    <section class="section downloader-section" id="downloader">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">MEDIA TOOLS</span>
+          <h2>Social Media Downloader</h2>
+          <p>Check supported public media links and content you are authorised to download.</p>
+        </div>
+      </div>
+
+      <div class="downloader-box">
+        <input
+          type="url"
+          id="downloadUrl"
+          placeholder="Paste a supported media link here..."
+          aria-label="Media link"
+        >
+        <button class="primary-btn" id="checkDownload">Check Link</button>
+        <p id="downloadMessage" class="status-message">
+          Paste a link to check it.
+        </p>
+        <small>
+          Downloads will depend on platform support and permissions.
+          Private content, protected content and restricted downloads are not supported.
+        </small>
+      </div>
+    </section>
+
+    <section class="section" id="favorites">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">YOUR COLLECTION</span>
+          <h2>My Favourites</h2>
+          <p>Your saved apps will appear here.</p>
+        </div>
+      </div>
+      <div class="app-grid" id="favoriteApps">
+        <p class="empty-message">You haven't saved any favourites yet.</p>
+      </div>
+    </section>
+
+    <section class="section add-app-section">
+      <h2>More Apps Coming Soon ✨</h2>
+      <p>Our hub is designed to grow. More tools and mini apps can be added over time.</p>
+    </section>
+
+  </main>
+
+  <div class="modal" id="appModal" aria-hidden="true">
+    <div class="modal-content">
+      <button class="modal-close" id="closeModal" aria-label="Close">×</button>
+      <h2 id="modalTitle">Mini App</h2>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <a href="#home" class="logo">
+      <span class="logo-icon">M</span>
+      <span>My Mini Apps <strong>Hub</strong></span>
+    </a>
+    <p>One hub. Many possibilities.</p>
+    <p class="copyright">© 2026 My Mini Apps Hub. All rights reserved.</p>
+  </footer>
+
+</body>
+</html>

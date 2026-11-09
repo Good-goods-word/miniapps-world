@@ -95,17 +95,6 @@ document.addEventListener("DOMContentLoaded", () => {
       "";
   }
 
-  function getCardDetails(card) {
-    return {
-      key: getCardKey(card),
-      name: card.dataset.name || "App",
-      app: card.dataset.app || "",
-      platformUrl: card.dataset.platformUrl || "",
-      category: card.dataset.category || "",
-      content: card.innerHTML
-    };
-  }
-
   /* ---------- MOBILE NAVIGATION ---------- */
 
   if (menuToggle && navigation) {
@@ -186,19 +175,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* ---------- FAVOURITES ---------- */
 
- /* ---------- FAVOURITES ---------- */
+  function addFavoriteButton(card) {
+    if (card.parentElement.querySelector(":scope > .favorite-button")) return;
 
-function addFavoriteButton(card) {
-  if (card.parentElement.querySelector(":scope > .favorite-button")) return;
+    const favoriteButton = document.createElement("button");
+    favoriteButton.type = "button";
+    favoriteButton.className = "favorite-button";
+    favoriteButton.setAttribute("aria-label", "Add to favourites");
+    favoriteButton.innerHTML = "☆";
 
-  const favoriteButton = document.createElement("button");
-  favoriteButton.type = "button";
-  favoriteButton.className = "favorite-button";
-  favoriteButton.setAttribute("aria-label", "Add to favourites");
-  favoriteButton.innerHTML = "☆";
-
-  card.parentElement.appendChild(favoriteButton);
-}
+    card.parentElement.appendChild(favoriteButton);
+  }
 
   function refreshFavoriteButtons() {
     const favorites = getFavorites();
@@ -1011,92 +998,94 @@ function addFavoriteButton(card) {
     });
   }
 
+  /* ---------- MEDIA DOWNLOADER API ---------- */
 
-/* ---------- MEDIA DOWNLOADER API ---------- */
+  const DOWNLOADER_API =
+    "https://miniapps-downloader-api.onrender.com";
 
-const DOWNLOADER_API =
-  "https://miniapps-downloader-api.onrender.com";
+  const downloadInput = document.getElementById("downloadUrl");
+  const checkDownloadButton = document.getElementById("checkDownload");
+  const downloadMessage = document.getElementById("downloadMessage");
 
-const downloadInput = document.getElementById("downloadUrl");
-const checkDownloadButton = document.getElementById("checkDownload");
-const downloadMessage = document.getElementById("downloadMessage");
+  checkDownloadButton?.addEventListener("click", async () => {
+    const value = downloadInput?.value.trim();
 
-checkDownloadButton?.addEventListener("click", async () => {
-  const value = downloadInput?.value.trim();
+    if (!downloadMessage) return;
 
-  if (!value) {
-    downloadMessage.textContent = "Please paste a media link first.";
-    return;
-  }
-
-  let mediaURL;
-
-  try {
-    mediaURL = new URL(value);
-
-    if (mediaURL.protocol !== "https:") {
-      throw new Error("Invalid link");
-    }
-  } catch {
-    downloadMessage.textContent = "Please enter a valid HTTPS link.";
-    return;
-  }
-
-  checkDownloadButton.disabled = true;
-  checkDownloadButton.textContent = "Downloading...";
-  downloadMessage.textContent = "Connecting to downloader...";
-
-  try {
-    const response = await fetch(
-      `${DOWNLOADER_API}/api/download?url=${encodeURIComponent(mediaURL.href)}`
-    );
-
-    if (!response.ok) {
-      let errorMessage = "Download failed. This link may not be supported.";
-
-      try {
-        const data = await response.json();
-        errorMessage = data.error || errorMessage;
-      } catch {}
-
-      throw new Error(errorMessage);
+    if (!value) {
+      downloadMessage.textContent = "Please paste a media link first.";
+      return;
     }
 
-    const blob = await response.blob();
+    let mediaURL;
 
-    if (!blob.size) {
-      throw new Error("The downloaded file is empty.");
+    try {
+      mediaURL = new URL(value);
+
+      if (mediaURL.protocol !== "https:") {
+        throw new Error("Invalid link");
+      }
+    } catch {
+      downloadMessage.textContent = "Please enter a valid HTTPS link.";
+      return;
     }
 
-    const disposition = response.headers.get("Content-Disposition") || "";
-    const match = disposition.match(/filename="?([^";]+)"?/i);
-    const filename = match ? match[1] : "downloaded-media";
+    checkDownloadButton.disabled = true;
+    checkDownloadButton.textContent = "Downloading...";
+    downloadMessage.textContent = "Connecting to downloader...";
 
-    const objectURL = URL.createObjectURL(blob);
-    const link = document.createElement("a");
+    try {
+      const response = await fetch(
+        `${DOWNLOADER_API}/api/download?url=${encodeURIComponent(mediaURL.href)}`
+      );
 
-    link.href = objectURL;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+      if (!response.ok) {
+        let errorMessage =
+          "Download failed. This link may not be supported.";
 
-    URL.revokeObjectURL(objectURL);
+        try {
+          const data = await response.json();
+          errorMessage = data.error || errorMessage;
+        } catch {
+          // Keep the default error message.
+        }
 
-    downloadMessage.textContent = "Download started successfully!";
+        throw new Error(errorMessage);
+      }
 
-  } catch (error) {
-    downloadMessage.textContent = error.message;
-  } finally {
-    checkDownloadButton.disabled = false;
-    checkDownloadButton.textContent = "Download Media";
-  }
-});
-  
+      const blob = await response.blob();
 
+      if (!blob.size) {
+        throw new Error("The downloaded file is empty.");
+      }
 
+      const disposition =
+        response.headers.get("Content-Disposition") || "";
 
+      const match = disposition.match(/filename="?([^";]+)"?/i);
+      const filename = match ? match[1] : "downloaded-media";
 
+      const objectURL = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = objectURL;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      setTimeout(() => URL.revokeObjectURL(objectURL), 1000);
+
+      downloadMessage.textContent = "Download started successfully!";
+
+    } catch (error) {
+      downloadMessage.textContent =
+        `Download error: ${error.message}`;
+    } finally {
+      checkDownloadButton.disabled = false;
+      checkDownloadButton.textContent = "Download Media";
+    }
+  });
 
   /* ---------- INITIALISE ---------- */
 

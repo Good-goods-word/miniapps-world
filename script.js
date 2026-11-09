@@ -650,49 +650,177 @@ function openNotes() {
   }
 }
 
+function openConverter() {
+  const units = {
+    Length: {
+      Meter: 1,
+      Kilometer: 1000,
+      Centimeter: 0.01,
+      Millimeter: 0.001,
+      Mile: 1609.344,
+      Yard: 0.9144,
+      Foot: 0.3048,
+      Inch: 0.0254
+    },
+    Weight: {
+      Kilogram: 1,
+      Gram: 0.001,
+      Milligram: 0.000001,
+      Metric_Ton: 1000,
+      Pound: 0.45359237,
+      Ounce: 0.0283495
+    },
+    Temperature: {
+      Celsius: "C",
+      Fahrenheit: "F",
+      Kelvin: "K"
+    },
+    Time: {
+      Second: 1,
+      Minute: 60,
+      Hour: 3600,
+      Day: 86400,
+      Week: 604800
+    },
+    Speed: {
+      "Meters/second": 1,
+      "Kilometers/hour": 0.2777778,
+      "Miles/hour": 0.44704,
+      Knot: 0.514444
+    },
+    Volume: {
+      Liter: 1,
+      Milliliter: 0.001,
+      "Cubic meter": 1000,
+      Gallon: 3.78541,
+      "US cup": 0.236588,
+      "Fluid ounce": 0.0295735
+    },
+    Area: {
+      "Square meter": 1,
+      "Square kilometer": 1000000,
+      "Square foot": 0.092903,
+      "Square inch": 0.00064516,
+      Acre: 4046.856,
+      Hectare: 10000
+    }
+  };
+
+  showModal("Advanced Unit Converter", `
+    <div style="display:grid;gap:12px;">
+      <label>Conversion category</label>
+      <select id="unitCategory" style="width:100%;padding:12px;">
+        ${Object.keys(units).map(category =>
+          `<option value="${category}">${category}</option>`
+        ).join("")}
+      </select>
+
+      <label>Enter value</label>
+      <input id="unitValue" type="number" step="any"
+        placeholder="Enter a number" style="width:100%;padding:12px;box-sizing:border-box;">
+
+      <label>From</label>
+      <select id="unitFrom" style="width:100%;padding:12px;"></select>
+
+      <label>To</label>
+      <select id="unitTo" style="width:100%;padding:12px;"></select>
+
+      <button class="action-btn" id="unitConvert"
+        style="width:100%;padding:13px;">Convert</button>
+
+      <div id="unitResult"
+        style="padding:16px;margin-top:8px;border-radius:10px;background:rgba(128,128,128,.12);">
+        Your result will appear here.
+      </div>
+    </div>
+  `);
+
+  const get = id => document.getElementById(id);
+  const category = get("unitCategory");
+  const from = get("unitFrom");
+  const to = get("unitTo");
+  const value = get("unitValue");
+  const result = get("unitResult");
+
+  function populateUnits() {
+    const names = Object.keys(units[category.value]);
+
+    from.innerHTML = names.map(name =>
+      `<option value="${name}">${name.replaceAll("_", " ")}</option>`
+    ).join("");
+
+    to.innerHTML = names.map(name =>
+      `<option value="${name}">${name.replaceAll("_", " ")}</option>`
+    ).join("");
+
+    if (names.length > 1) to.selectedIndex = 1;
+
+    result.textContent = "Enter a value and tap Convert.";
+  }
+
+  function convertTemperature(number, source, destination) {
+    let celsius;
+
+    if (source === "Celsius") celsius = number;
+    if (source === "Fahrenheit") celsius = (number - 32) * 5 / 9;
+    if (source === "Kelvin") celsius = number - 273.15;
+
+    if (destination === "Celsius") return celsius;
+    if (destination === "Fahrenheit") return celsius * 9 / 5 + 32;
+    if (destination === "Kelvin") return celsius + 273.15;
+  }
+
+  function convert() {
+    if (value.value.trim() === "" || !Number.isFinite(Number(value.value))) {
+      result.textContent = "Please enter a valid number.";
+      return;
+    }
+
+    const number = Number(value.value);
+    const source = from.value;
+    const destination = to.value;
+
+    let answer;
+
+    if (category.value === "Temperature") {
+      answer = convertTemperature(number, source, destination);
+    } else {
+      const factors = units[category.value];
+      answer = number * factors[source] / factors[destination];
+    }
+
+    if (!Number.isFinite(answer)) {
+      result.textContent = "Unable to convert this value.";
+      return;
+    }
+
+    result.innerHTML = `
+      <div style="font-size:13px;opacity:.7;">Conversion result</div>
+      <div style="font-size:24px;font-weight:bold;margin:8px 0;">
+        ${Number(answer.toPrecision(10)).toLocaleString("en-US")}
+      </div>
+      <div>${number.toLocaleString("en-US")} ${source.replaceAll("_", " ")}
+      = ${Number(answer.toPrecision(10)).toLocaleString("en-US")}
+      ${destination.replaceAll("_", " ")}</div>
+    `;
+  }
+
+  category.addEventListener("change", populateUnits);
+  get("unitConvert").addEventListener("click", convert);
+  value.addEventListener("input", convert);
+  from.addEventListener("change", convert);
+  to.addEventListener("change", convert);
+
+  populateUnits();
+}
+
 
 
 // ======================================
 // UNIT CONVERTER
 // ======================================
 
-function openConverter() {
-  showModal("Unit Converter", `
-    <input id="convertValue" type="number" placeholder="Enter a number">
-    <select id="convertType">
-      <option value="km">Kilometres to Miles</option>
-      <option value="miles">Miles to Kilometres</option>
-      <option value="kg">Kilograms to Pounds</option>
-      <option value="pounds">Pounds to Kilograms</option>
-      <option value="cm">Centimetres to Inches</option>
-      <option value="inches">Inches to Centimetres</option>
-    </select>
-    <button class="action-btn" id="convertBtn">Convert</button>
-    <p id="convertResult" style="margin-top:15px;"></p>
-  `);
 
-  document.getElementById("convertBtn").addEventListener("click", () => {
-    const value = Number(document.getElementById("convertValue").value);
-    const type = document.getElementById("convertType").value;
-    const result = document.getElementById("convertResult");
-
-    if (document.getElementById("convertValue").value === "" || !Number.isFinite(value)) {
-      result.textContent = "Please enter a number.";
-      return;
-    }
-
-    const conversions = {
-      km: value * 0.621371,
-      miles: value * 1.60934,
-      kg: value * 2.20462,
-      pounds: value * 0.453592,
-      cm: value * 0.393701,
-      inches: value * 2.54
-    };
-
-    result.textContent = "Result: " + conversions[type].toFixed(3);
-  });
-}
 
 // ======================================
 // TIC TAC TOE

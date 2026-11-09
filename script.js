@@ -186,7 +186,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* ---------- FAVOURITES ---------- */
 
-  function addFavoriteButton(card) {
+ /* ---------- FAVOURITES ---------- */
+
+function addFavoriteButton(card) {
   if (card.parentElement.querySelector(":scope > .favorite-button")) return;
 
   const favoriteButton = document.createElement("button");
@@ -197,15 +199,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   card.parentElement.appendChild(favoriteButton);
 }
-
-    const favoriteButton = document.createElement("button");
-    favoriteButton.type = "button";
-    favoriteButton.className = "favorite-button";
-    favoriteButton.setAttribute("aria-label", "Add to favourites");
-    favoriteButton.innerHTML = "☆";
-
-    card.parentElement.appendChild(favoriteButton);
-  }
 
   function refreshFavoriteButtons() {
     const favorites = getFavorites();

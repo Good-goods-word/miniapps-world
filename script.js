@@ -485,22 +485,172 @@ answer = math(fixedExpression).evaluate().text();
 // ======================================
 
 function openNotes() {
-  const savedNotes = localStorage.getItem("miniHubNotes") || "";
+  let notes = [];
+
+  const stored = localStorage.getItem("miniHubNotes");
+
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+
+      if (Array.isArray(parsed)) {
+        notes = parsed;
+      } else {
+        notes = [{
+          id: Date.now(),
+          title: "My First Note",
+          content: stored
+        }];
+      }
+    } catch {
+      notes = [{
+        id: Date.now(),
+        title: "My First Note",
+        content: stored
+      }];
+    }
+  }
+
+  let activeNoteId = notes.length ? notes[0].id : null;
 
   showModal("My Notes", `
-    <textarea id="notesInput" placeholder="Write your ideas here..."></textarea>
-    <button class="action-btn" id="saveNotes">Save Notes</button>
-    <p id="notesMessage"></p>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <input id="noteSearch" placeholder="Search notes..." 
+        style="flex:1;min-width:0;padding:12px;border-radius:8px;border:1px solid #ccc;">
+      <button class="action-btn" id="newNote">+ New</button>
+    </div>
+
+    <div id="notesList" style="margin-bottom:15px;"></div>
+
+    <input id="noteTitle" placeholder="Note title"
+      style="width:100%;box-sizing:border-box;padding:12px;margin-bottom:10px;border-radius:8px;border:1px solid #ccc;">
+
+    <textarea id="notesInput" placeholder="Write your ideas here..."
+      style="width:100%;min-height:180px;box-sizing:border-box;padding:12px;border-radius:8px;border:1px solid #ccc;"></textarea>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;">
+      <span id="notesMessage" style="font-size:12px;">Your notes save automatically.</span>
+      <button class="action-btn" id="deleteNote" style="background:#d93636;">Delete</button>
+    </div>
   `);
 
-  const notesInput = document.getElementById("notesInput");
-  notesInput.value = savedNotes;
+  const get = id => document.getElementById(id);
+  const titleInput = get("noteTitle");
+  const notesInput = get("notesInput");
+  const notesList = get("notesList");
+  const message = get("notesMessage");
 
-  document.getElementById("saveNotes").addEventListener("click", () => {
-    localStorage.setItem("miniHubNotes", notesInput.value);
-    document.getElementById("notesMessage").textContent = "Notes saved successfully!";
+  function saveAll() {
+    localStorage.setItem("miniHubNotes", JSON.stringify(notes));
+    message.textContent = "Saved automatically ✓";
+  }
+
+  function escapeHTML(value) {
+    return String(value).replace(/[&<>"']/g, char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    })[char]);
+  }
+
+  function renderNotes() {
+    const search = get("noteSearch").value.toLowerCase();
+
+    const filtered = notes.filter(note =>
+      (note.title || "").toLowerCase().includes(search) ||
+      (note.content || "").toLowerCase().includes(search)
+    );
+
+    if (!filtered.length) {
+      notesList.innerHTML = '<p style="font-size:13px;opacity:.7;">No notes found.</p>';
+      return;
+    }
+
+    notesList.innerHTML = filtered.map(note => `
+      <button class="action-btn" data-note-id="${escapeHTML(note.id)}"
+        style="display:block;width:100%;text-align:left;margin-bottom:6px;opacity:${note.id === activeNoteId ? "1" : ".7"};">
+        ${escapeHTML(note.title || "Untitled note")}
+      </button>
+    `).join("");
+  }
+
+  function loadNote(id) {
+    const note = notes.find(item => String(item.id) === String(id));
+    if (!note) return;
+
+    activeNoteId = note.id;
+    titleInput.value = note.title || "";
+    notesInput.value = note.content || "";
+    get("deleteNote").style.display = "block";
+    renderNotes();
+  }
+
+  function createNote() {
+    const note = {
+      id: Date.now(),
+      title: "Untitled note",
+      content: ""
+    };
+
+    notes.unshift(note);
+    activeNoteId = note.id;
+    saveAll();
+    loadNote(note.id);
+    titleInput.focus();
+  }
+
+  function updateActiveNote() {
+    let note = notes.find(item => String(item.id) === String(activeNoteId));
+
+    if (!note) return;
+
+    note.title = titleInput.value;
+    note.content = notesInput.value;
+
+    saveAll();
+    renderNotes();
+  }
+
+  get("newNote").addEventListener("click", createNote);
+
+  get("noteSearch").addEventListener("input", renderNotes);
+
+  notesList.addEventListener("click", event => {
+    const button = event.target.closest("[data-note-id]");
+    if (button) loadNote(button.dataset.noteId);
   });
+
+  titleInput.addEventListener("input", updateActiveNote);
+  notesInput.addEventListener("input", updateActiveNote);
+
+  get("deleteNote").addEventListener("click", () => {
+    if (activeNoteId === null) return;
+
+    notes = notes.filter(note => String(note.id) !== String(activeNoteId));
+    activeNoteId = notes.length ? notes[0].id : null;
+
+    saveAll();
+
+    if (activeNoteId !== null) {
+      loadNote(activeNoteId);
+    } else {
+      titleInput.value = "";
+      notesInput.value = "";
+      renderNotes();
+      get("deleteNote").style.display = "none";
+    }
+  });
+
+  if (activeNoteId !== null) {
+    loadNote(activeNoteId);
+  } else {
+    createNote();
+  }
 }
+
+
 
 // ======================================
 // UNIT CONVERTER

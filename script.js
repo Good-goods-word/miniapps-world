@@ -1012,10 +1012,11 @@ function addFavoriteButton(card) {
   }
 
   
+
 /* ---------- MEDIA DOWNLOADER API ---------- */
 
 const DOWNLOADER_API =
-  "https://miniapps-downloader-api.lildavid5h.workers.dev";
+  "https://miniapps-downloader-api.onrender.com";
 
 const downloadInput = document.getElementById("downloadUrl");
 const checkDownloadButton = document.getElementById("checkDownload");
@@ -1034,46 +1035,65 @@ checkDownloadButton?.addEventListener("click", async () => {
   try {
     mediaURL = new URL(value);
 
-    if (!["http:", "https:"].includes(mediaURL.protocol)) {
+    if (mediaURL.protocol !== "https:") {
       throw new Error("Invalid link");
     }
   } catch {
-    downloadMessage.textContent =
-      "Please enter a valid complete website link.";
+    downloadMessage.textContent = "Please enter a valid HTTPS link.";
     return;
   }
 
   checkDownloadButton.disabled = true;
-  checkDownloadButton.textContent = "Checking...";
-  downloadMessage.textContent = "Connecting to downloader service...";
+  checkDownloadButton.textContent = "Downloading...";
+  downloadMessage.textContent = "Connecting to downloader...";
 
   try {
     const response = await fetch(
-      `${DOWNLOADER_API}/api/check?url=${encodeURIComponent(mediaURL.href)}`
+      `${DOWNLOADER_API}/api/download?url=${encodeURIComponent(mediaURL.href)}`
     );
 
-    const data = await response.json();
-
     if (!response.ok) {
-      throw new Error(data.error || "The request failed.");
+      let errorMessage = "Download failed. This link may not be supported.";
+
+      try {
+        const data = await response.json();
+        errorMessage = data.error || errorMessage;
+      } catch {}
+
+      throw new Error(errorMessage);
     }
 
-    if (data.available) {
-      downloadMessage.textContent =
-        `Media detected: ${data.mediaType}. ${data.message}`;
-    } else {
-      downloadMessage.textContent =
-        data.message || "No directly accessible media was detected.";
+    const blob = await response.blob();
+
+    if (!blob.size) {
+      throw new Error("The downloaded file is empty.");
     }
+
+    const disposition = response.headers.get("Content-Disposition") || "";
+    const match = disposition.match(/filename="?([^";]+)"?/i);
+    const filename = match ? match[1] : "downloaded-media";
+
+    const objectURL = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = objectURL;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(objectURL);
+
+    downloadMessage.textContent = "Download started successfully!";
 
   } catch (error) {
-    downloadMessage.textContent =
-      `Downloader connection error: ${error.message}`;
+    downloadMessage.textContent = error.message;
   } finally {
     checkDownloadButton.disabled = false;
-    checkDownloadButton.textContent = "Check Link";
+    checkDownloadButton.textContent = "Download Media";
   }
 });
+
 
 
   /* ---------- INITIALISE ---------- */

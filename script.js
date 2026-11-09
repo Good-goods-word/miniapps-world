@@ -255,7 +255,7 @@ document.addEventListener("keydown", event => {
 
 function openCalculator() {
   showModal("Calculator", `
-    <input id="calcInput" type="text" placeholder="Example: 25 + 15">
+    <input id="calcInput" type="text" placeholder="Example: 100 + 500%3 - 4000">
     <button class="action-btn" id="calculateBtn">Calculate</button>
     <p id="calcResult" style="margin-top:15px;">Your answer will appear here.</p>
   `);
@@ -264,21 +264,35 @@ function openCalculator() {
     const input = document.getElementById("calcInput").value.trim();
     const result = document.getElementById("calcResult");
 
-    if (!input || !/^[0-9+\-*/().%\s]+$/.test(input)) {
-      result.textContent = "Please enter a valid maths calculation.";
+    if (!input) {
+      result.textContent = "Please enter a calculation.";
+      return;
+    }
+
+    // Convert percentage calculations into normal maths.
+    let expression = input
+      .replace(/(\d+(?:\.\d+)?)\s*%\s*(?=[\d(])/g, "($1/100)*")
+      .replace(/(\d+(?:\.\d+)?)\s*%(?!\s*[\d(])/g, "($1/100)");
+
+    // Allow only basic mathematical characters.
+    if (!/^[0-9+\-*/().\s]+$/.test(expression)) {
+      result.textContent = "Please enter a valid calculation.";
       return;
     }
 
     try {
-      const answer = Function('"use strict"; return (' + input + ')')();
+      const answer = Function('"use strict"; return (' + expression + ')')();
 
-      result.textContent =
-        Number.isFinite(answer) ? "Answer: " + answer : "Invalid calculation.";
+      result.textContent = Number.isFinite(answer)
+        ? "Answer: " + Number(answer.toFixed(10))
+        : "Invalid calculation.";
     } catch {
       result.textContent = "Sorry, I couldn't calculate that.";
     }
   });
 }
+
+
 
 // ======================================
 // NOTES APP

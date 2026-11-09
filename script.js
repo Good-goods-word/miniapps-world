@@ -253,44 +253,225 @@ document.addEventListener("keydown", event => {
 // CALCULATOR
 // ======================================
 
-function openCalculator() {
-  showModal("Calculator", `
-    <input id="calcInput" type="text" placeholder="Example: 100 + 500%3 - 4000">
-    <button class="action-btn" id="calculateBtn">Calculate</button>
-    <p id="calcResult" style="margin-top:15px;">Your answer will appear here.</p>
+async function openCalculator() {
+  showModal("Complete Mathematics Solver", `
+    <div id="mathSolver" style="padding:12px;color:var(--text,#222)">
+      <h3>Scientific & Advanced Mathematics</h3>
+      <p>Enter an expression or mathematical problem.</p>
+
+      <select id="mathMode" style="width:100%;padding:12px;margin-bottom:10px">
+        <option value="calculate">Scientific calculation</option>
+        <option value="simplify">Simplify</option>
+        <option value="expand">Expand</option>
+        <option value="factor">Factorise</option>
+        <option value="solve">Solve equation</option>
+        <option value="diff">Differentiate</option>
+        <option value="integrate">Integrate</option>
+        <option value="limit">Calculate limit</option>
+        <option value="matrix">Matrix expression</option>
+        <option value="statistics">Statistics</option>
+      </select>
+
+      <input id="mathExpression" placeholder="Example: x^2 - 4"
+        style="width:100%;padding:13px;margin-bottom:10px">
+
+      <div style="display:flex;gap:8px">
+        <input id="mathVariable" value="x" placeholder="Variable"
+          style="width:50%;padding:11px">
+        <input id="mathApproach" placeholder="Limit point (optional)"
+          style="width:50%;padding:11px">
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:12px 0">
+        ${["7","8","9","/","4","5","6","*","1","2","3","-","0",".","(",")","+","^","π","sqrt(","sin(","cos(","tan(","log(","ln(","!","%","e","AC","DEL","="].map(k =>
+          `<button type="button" data-mathkey="${k}" style="padding:12px;border:1px solid #aaa;border-radius:8px">${k}</button>`
+        ).join("")}
+      </div>
+
+      <button id="mathRun" style="width:100%;padding:14px;border:0;border-radius:9px;background:#6555d9;color:white;font-weight:bold">
+        Solve problem
+      </button>
+
+      <div id="mathOutput" style="padding:15px;margin-top:12px;border-radius:10px;background:var(--card-bg,#eee);overflow-wrap:anywhere">
+        Your answer will appear here.
+      </div>
+
+      <button id="mathCopy" style="margin-top:8px;padding:10px">Copy answer</button>
+
+      <h4>Calculation history</h4>
+      <div id="mathHistory"></div>
+    </div>
   `);
 
-  document.getElementById("calculateBtn").addEventListener("click", () => {
-    const input = document.getElementById("calcInput").value.trim();
-    const result = document.getElementById("calcResult");
+  const root = document.getElementById("mathSolver");
+  if (!root) return;
 
-    if (!input) {
-      result.textContent = "Please enter a calculation.";
+  const get = id => root.querySelector("#" + id);
+  const expression = get("mathExpression");
+  const output = get("mathOutput");
+  const history = get("mathHistory");
+
+  function loadEngine() {
+    if (window.nerdamer) return Promise.resolve();
+
+    if (window.mathEngineLoading) return window.mathEngineLoading;
+
+    window.mathEngineLoading = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/nerdamer@2.0.1/dist/bundle.js";
+      script.onload = () => window.nerdamer
+        ? resolve()
+        : reject(new Error("Mathematics engine did not initialize."));
+      script.onerror = () => reject(new Error("Could not load mathematics engine. Check your internet connection."));
+      document.head.appendChild(script);
+    });
+
+    return window.mathEngineLoading;
+  }
+
+  root.querySelectorAll("[data-mathkey]").forEach(button => {
+    button.addEventListener("click", () => {
+      const key = button.dataset.mathkey;
+
+      if (key === "AC") expression.value = "";
+      else if (key === "DEL") expression.value = expression.value.slice(0,-1);
+      else if (key === "=") get("mathRun").click();
+      else expression.value += key;
+
+      expression.focus();
+    });
+  });
+
+  function addHistory(question, answer) {
+    const item = document.createElement("div");
+    item.style.padding = "9px";
+    item.style.borderBottom = "1px solid #aaa";
+    item.textContent = question + " = " + answer;
+    history.prepend(item);
+  }
+
+  function statistics(values) {
+    const sorted = [...values].sort((a,b) => a-b);
+    const sum = values.reduce((a,b) => a+b,0);
+    const mean = sum / values.length;
+    const middle = Math.floor(sorted.length/2);
+    const median = sorted.length % 2
+      ? sorted[middle]
+      : (sorted[middle-1] + sorted[middle])/2;
+
+    const counts = {};
+    values.forEach(v => counts[v] = (counts[v] || 0)+1);
+    const maxCount = Math.max(...Object.values(counts));
+    const modes = Object.keys(counts)
+      .filter(k => counts[k] === maxCount)
+      .join(", ");
+
+    const variance = values.reduce((s,v) => s+(v-mean)**2,0)/values.length;
+
+    return [
+      "Count: " + values.length,
+      "Sum: " + sum,
+      "Mean: " + mean,
+      "Median: " + median,
+      "Mode: " + (maxCount === 1 ? "No repeated mode" : modes),
+      "Population variance: " + variance,
+      "Population standard deviation: " + Math.sqrt(variance)
+    ].join("\n");
+  }
+
+  get("mathRun").addEventListener("click", async () => {
+    const question = expression.value.trim();
+    const mode = get("mathMode").value;
+    const variable = get("mathVariable").value.trim() || "x";
+    const point = get("mathApproach").value.trim();
+
+    if (!question) {
+      output.textContent = "Enter a mathematical problem first.";
       return;
     }
 
-    // Convert percentage calculations into normal maths.
-    let expression = input
-      .replace(/(\d+(?:\.\d+)?)\s*%\s*(?=[\d(])/g, "($1/100)*")
-      .replace(/(\d+(?:\.\d+)?)\s*%(?!\s*[\d(])/g, "($1/100)");
-
-    // Allow only basic mathematical characters.
-    if (!/^[0-9+\-*/().\s]+$/.test(expression)) {
-      result.textContent = "Please enter a valid calculation.";
-      return;
-    }
+    output.textContent = "Loading mathematics engine...";
 
     try {
-      const answer = Function('"use strict"; return (' + expression + ')')();
+      if (mode === "statistics") {
+        const values = question.split(/[,;\s]+/).map(Number);
+        if (!values.length || values.some(v => !Number.isFinite(v))) {
+          throw Error("Enter numbers separated by commas, for example 2,4,6,8.");
+        }
 
-      result.textContent = Number.isFinite(answer)
-        ? "Answer: " + Number(answer.toFixed(10))
-        : "Invalid calculation.";
-    } catch {
-      result.textContent = "Sorry, I couldn't calculate that.";
+        const answer = statistics(values);
+        output.textContent = answer;
+        addHistory(question, answer);
+        return;
+      }
+
+      await loadEngine();
+
+      const math = window.nerdamer;
+      let answer;
+
+      switch (mode) {
+        case "calculate":
+          answer = math(question).evaluate().text();
+          break;
+
+        case "simplify":
+          answer = math.simplify(question).text();
+          break;
+
+        case "expand":
+          answer = math.expand(question).text();
+          break;
+
+        case "factor":
+          answer = math.factor(question).text();
+          break;
+
+        case "solve":
+          answer = math.solve(question, variable).text();
+          break;
+
+        case "diff":
+          answer = math.diff(question, variable).text();
+          break;
+
+        case "integrate":
+          answer = math.integrate(question, variable).text();
+          break;
+
+        case "limit":
+          if (!point) throw Error("Enter the point for the limit.");
+          answer = math.limit(question, variable, point).text();
+          break;
+
+        case "matrix":
+          answer = math(question).text();
+          break;
+
+        default:
+          throw Error("Choose a valid mathematics operation.");
+      }
+
+      output.textContent = answer;
+      addHistory(question, answer);
+
+    } catch (error) {
+      output.textContent = "Unable to solve: " + error.message;
     }
   });
+
+  get("mathCopy").addEventListener("click", () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(output.textContent);
+    }
+  });
+
+  expression.addEventListener("keydown", event => {
+    if (event.key === "Enter") get("mathRun").click();
+  });
 }
+
+
 
 
 

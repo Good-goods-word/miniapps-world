@@ -3,8 +3,11 @@ const TELEGRAM_API = "https://api.telegram.org";
 const WEBSITE_URL = "https://miniapps-world.lildavid5h.workers.dev/";
 
 const AI_MODEL = "@cf/zai-org/glm-4.7-flash";
+const WHISPER_MODEL = "@cf/openai/whisper-large-v3-turbo";
+
 const MAX_HISTORY_MESSAGES = 12;
 const MEMORY_TTL = 60 * 60 * 24 * 30;
+const MAX_VOICE_SIZE = 20 * 1024 * 1024;
 
 const SYSTEM_PROMPT = `
 You are My Mini Apps Hub Assistant, a friendly and helpful AI assistant.
@@ -70,12 +73,65 @@ export default {
 
       const chatId = message.chat.id;
       const userId = message.from.id;
-      const text = (message.text || "").trim();
 
+      let text = (message.text || "").trim();
+
+      // HANDLE TELEGRAM VOICE NOTES
+      if (message.voice) {
+        if (!env.AI) {
+          throw new Error("Cloudflare AI binding is missing.");
+        }
+
+        if (!env.TELEGRAM_BOT_TOKEN) {
+          throw new Error("Telegram bot token is missing.");
+        }
+
+        if (
+          message.voice.file_size &&
+          message.voice.file_size > MAX_VOICE_SIZE
+        ) {
+          await sendMessage(
+            chatId,
+            "That voice note is too large. Please send one smaller than 20 MB.",
+            env
+          );
+
+          return new Response("OK");
+        }
+
+        await sendMessage(
+          chatId,
+          "🎧 Listening to your voice note...",
+          env
+        );
+
+        text = await transcribeTelegramVoice(
+          message.voice.file_id,
+          env
+        );
+
+        if (!text) {
+          await sendMessage(
+            chatId,
+            "I couldn't understand that voice note. Please try recording it again.",
+            env
+          );
+
+          return new Response("OK");
+        }
+
+        await sendMessage(
+          chatId,
+          `📝 I heard: ${text}`,
+          env
+        );
+      }
+
+      // HANDLE EMPTY OR UNSUPPORTED MESSAGES
       if (!text) {
         await sendMessage(
           chatId,
-          "I can read text messages for now. Send me a message and let's chat!",
+          "Send me a text message or a Telegram voice note and let's chat!",
           env
         );
 
@@ -95,9 +151,9 @@ export default {
 
 I'm your personal AI assistant.
 
-You can chat with me naturally, ask questions, get help with writing, explore useful tools, and more.
+You can chat with me naturally, ask questions, get help with writing, explore useful tools, and send me voice notes.
 
-Try sending me a message!
+Try sending me a message or voice note!
 
 Use /help to see my commands.`,
           env
@@ -120,7 +176,7 @@ Use /help to see my commands.`,
 /about — About this bot
 /forget — Clear your saved conversation
 
-You can also send me any ordinary message to start an AI conversation. 🤖`,
+You can send normal text messages or voice notes to chat with your AI assistant. 🤖`,
           env
         );
 
@@ -175,6 +231,7 @@ You're using My Mini Apps Hub.`,
           `BOT SETTINGS ⚙️
 
 AI chat: Enabled
+Voice note transcription: Enabled
 Conversation memory: Enabled
 Memory expiry: 30 days
 
@@ -266,7 +323,78 @@ ONE HUB. MANY POSSIBILITIES.`,
 
 
 // ==========================================
-// CLOUDFLARE WORKERS AI + CONVERSATION MEMORY
+// TELEGRAM VOICE NOTE TRANSCRIPTION
+// ==========================================
+
+async function transcribeTelegramVoice(fileId, env) {
+  // Get Telegram file information
+  const infoResponse = await fetch(
+    `${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/getFile?file_id=${encodeURIComponent(fileId)}`
+  );
+
+  if (!infoResponse.ok) {
+    throw new Error("Could not get voice note information from Telegram.");
+  }
+
+  const info = await infoResponse.json();
+
+  if (!info.ok || !info.result?.file_path) {
+    throw new Error("Telegram did not return a valid voice file.");
+  }
+
+  // Download the voice note
+  const fileUrl =
+    `${TELEGRAM_API}/file/bot${env.TELEGRAM_BOT_TOKEN}/${info.result.file_path}`;
+
+  const audioResponse = await fetch(fileUrl);
+
+  if (!audioResponse.ok) {
+    throw new Error("Could not download the Telegram voice note.");
+  }
+
+  const audioBuffer = await audioResponse.arrayBuffer();
+
+  if (audioBuffer.byteLength > MAX_VOICE_SIZE) {
+    throw new Error("Voice note exceeds the 20 MB download limit.");
+  }
+
+  // Convert audio bytes to Base64 for Whisper
+  const bytes = new Uint8Array(audioBuffer);
+  let binary = "";
+
+  for (let i = 0; i < bytes.length; i += 8192) {
+    const chunk = bytes.subarray(
+      i,
+      Math.min(i + 8192, bytes.length)
+    );
+
+    binary += String.fromCharCode(...chunk);
+  }
+
+  const audioBase64 = btoa(binary);
+
+  // Transcribe using Cloudflare Workers AI
+  const result = await env.AI.run(WHISPER_MODEL, {
+    audio: audioBase64,
+    task: "transcribe"
+  });
+
+  const transcript = (
+    result?.text ||
+    result?.transcription ||
+    ""
+  ).trim();
+
+  if (!transcript) {
+    throw new Error("Whisper could not produce a transcription.");
+  }
+
+  return transcript;
+}
+
+
+// ==========================================
+// CLOUDFLARE AI + CONVERSATION MEMORY
 // ==========================================
 
 async function getAIReply(userText, userId, env) {
@@ -319,9 +447,8 @@ async function getAIReply(userText, userId, env) {
 
   try {
     result = await env.AI.run(AI_MODEL, {
-  messages,
-  max_tokens: 800
-});
+      messages,
+      max_tokens: 800
     });
   } catch (error) {
     console.error("Cloudflare Workers AI error:", error);

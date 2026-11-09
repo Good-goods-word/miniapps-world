@@ -1011,7 +1011,6 @@ function addFavoriteButton(card) {
     });
   }
 
-  
 
 /* ---------- MEDIA DOWNLOADER API ---------- */
 
@@ -1093,6 +1092,9 @@ checkDownloadButton?.addEventListener("click", async () => {
     checkDownloadButton.textContent = "Download Media";
   }
 });
+  
+
+
 
 
 

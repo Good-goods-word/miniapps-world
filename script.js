@@ -1,4 +1,3 @@
-
 /* ==========================================
    MY MINI APPS HUB
    COMPLETE SCRIPT.JS REPLACEMENT
@@ -282,57 +281,45 @@ document.addEventListener("DOMContentLoaded", () => {
     renderFavorites();
   });
 
-  /* ---------- PLATFORM VIEWER ---------- */
+  /* ---------- PLATFORM OPENER ---------- */
 
   function openPlatform(card) {
-    const url = card.dataset.platformUrl;
+    const rawURL = card.dataset.platformUrl;
     const name = card.dataset.name || "Platform";
 
-    if (!url) return;
+    if (!rawURL) return;
 
     let safeURL;
 
     try {
-      safeURL = new URL(url);
+      safeURL = new URL(rawURL);
 
-      if (safeURL.protocol !== "https:") {
-        throw new Error("Only secure website links are supported.");
+      if (
+        safeURL.protocol !== "https:" ||
+        !safeURL.hostname ||
+        safeURL.username ||
+        safeURL.password
+      ) {
+        throw new Error("Only valid secure website links are supported.");
       }
     } catch {
-      openModal(name, "<p>That platform link is not valid.</p>");
+      openModal(
+        name,
+        "<p>That platform link is not valid. Please check its official website address.</p>"
+      );
       return;
     }
 
-    const content = `
-      <p class="platform-note">
-        This platform is being opened inside My Mini Apps Hub.
-        Some websites block embedded viewing, so the panel may not load.
-      </p>
+    /*
+      Open the official website as a top-level page in the current
+      browser/webview instead of placing it inside an iframe.
 
-      <iframe
-        class="platform-frame"
-        src="${escapeHTML(safeURL.href)}"
-        title="${escapeHTML(name)}"
-        loading="lazy"
-        referrerpolicy="strict-origin-when-cross-origin"
-        allow="clipboard-read; clipboard-write; fullscreen"
-        allowfullscreen>
-      </iframe>
+      This gives websites that block iframe embedding a chance to load.
+      The browser or Telegram back button should return the user to the hub.
+      Some platforms may still redirect to their app or restrict access.
+    */
 
-      <p class="platform-note">
-        If the website does not appear, use its official website link below.
-      </p>
-
-      <a
-        class="platform-fallback"
-        href="${escapeHTML(safeURL.href)}"
-        target="_blank"
-        rel="noopener noreferrer">
-        Open official ${escapeHTML(name)} website
-      </a>
-    `;
-
-    openModal(name, content, true);
+    window.location.assign(safeURL.href);
   }
 
   /* ---------- CARD OPENING ---------- */

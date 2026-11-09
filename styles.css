@@ -1,13 +1,13 @@
-
 :root {
-  --bg: #090d18;
+  --bg: #080b14;
   --surface: #111827;
-  --surface-light: #182235;
+  --surface-light: #1b2740;
   --text: #f5f7ff;
   --muted: #9aa7bd;
   --accent: #8b6cff;
   --accent-light: #b5a2ff;
   --border: rgba(255,255,255,0.09);
+  --shadow: 0 15px 40px rgba(0,0,0,0.25);
 }
 
 * {
@@ -18,7 +18,7 @@
 
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: 85px;
+  scroll-padding-top: 90px;
 }
 
 body {
@@ -26,6 +26,7 @@ body {
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.6;
+  min-height: 100vh;
 }
 
 a {
@@ -33,12 +34,21 @@ a {
   text-decoration: none;
 }
 
-button, input, textarea {
+button, input, textarea, select {
   font: inherit;
 }
 
 button {
   cursor: pointer;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent-light);
+  outline-offset: 3px;
 }
 
 .topbar {
@@ -48,12 +58,13 @@ button {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(9,13,24,0.95);
+  background: rgba(9,13,24,0.94);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   z-index: 100;
-  backdrop-filter: blur(15px);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
 .logo {
@@ -69,14 +80,15 @@ button {
 }
 
 .logo-icon {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 13px;
   background: linear-gradient(135deg, #8b6cff, #4f46e5);
   color: white;
   font-size: 22px;
+  box-shadow: 0 5px 18px rgba(139,108,255,0.25);
 }
 
 .navigation {
@@ -104,7 +116,7 @@ button {
 }
 
 .hero {
-  min-height: 440px;
+  min-height: 460px;
   padding: 90px 8%;
   display: flex;
   align-items: center;
@@ -112,7 +124,8 @@ button {
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(circle at 80% 30%, rgba(139,108,255,0.22), transparent 35%),
+    radial-gradient(circle at 80% 30%, rgba(139,108,255,0.24), transparent 35%),
+    radial-gradient(circle at 10% 100%, rgba(79,70,229,0.15), transparent 35%),
     linear-gradient(135deg, #101a30, #090d18);
 }
 
@@ -150,22 +163,25 @@ button {
 .hero-decoration {
   font-size: 190px;
   color: rgba(181,162,255,0.15);
+  user-select: none;
 }
 
 .primary-btn {
   display: inline-block;
   border: none;
   border-radius: 12px;
-  padding: 13px 22px;
+  padding: 13px 23px;
   background: linear-gradient(135deg, #8b6cff, #6548e8);
   color: white;
   font-weight: 700;
-  transition: transform 0.2s, opacity 0.2s;
+  box-shadow: 0 8px 22px rgba(139,108,255,0.2);
+  transition: transform 0.2s, opacity 0.2s, box-shadow 0.2s;
 }
 
 .primary-btn:hover {
-  transform: translateY(-2px);
-  opacity: 0.9;
+  transform: translateY(-3px);
+  opacity: 0.95;
+  box-shadow: 0 12px 28px rgba(139,108,255,0.3);
 }
 
 .search-section {
@@ -182,11 +198,13 @@ button {
   background: var(--surface);
   color: white;
   outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .search-section input:focus,
 .downloader-box input:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(139,108,255,0.12);
 }
 
 .section {
@@ -220,6 +238,7 @@ button {
   border-radius: 30px;
   color: var(--muted);
   background: var(--surface);
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
 .filter-btn.active,
@@ -244,13 +263,14 @@ button {
   color: var(--text);
   text-align: left;
   display: block;
-  transition: transform 0.2s, border-color 0.2s, background 0.2s;
+  transition: transform 0.2s, border-color 0.2s, background 0.2s, box-shadow 0.2s;
 }
 
 .app-card:hover {
   transform: translateY(-5px);
   border-color: var(--accent);
   background: var(--surface-light);
+  box-shadow: var(--shadow);
 }
 
 .app-icon {
@@ -289,6 +309,7 @@ button {
   border: 1px solid var(--border);
   border-radius: 18px;
   background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
 .downloader-box input {
@@ -340,6 +361,7 @@ button {
   background: rgba(0,0,0,0.8);
   align-items: center;
   justify-content: center;
+  backdrop-filter: blur(5px);
 }
 
 .modal.show {
@@ -356,6 +378,7 @@ button {
   border: 1px solid var(--border);
   border-radius: 20px;
   background: var(--surface);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
 }
 
 .modal-close {
@@ -370,10 +393,12 @@ button {
 
 .modal-content h2 {
   margin-bottom: 20px;
+  padding-right: 25px;
 }
 
 .modal-content input,
-.modal-content textarea {
+.modal-content textarea,
+.modal-content select {
   width: 100%;
   padding: 12px;
   margin: 8px 0;
@@ -395,6 +420,12 @@ button {
   border-radius: 9px;
   background: var(--accent);
   color: white;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.modal-content button.action-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
 }
 
 .footer {
@@ -490,6 +521,10 @@ button {
   .downloader-box {
     padding: 18px;
   }
+
+  .modal-content {
+    padding: 25px 20px;
+  }
 }
 
 @media (max-width: 360px) {
@@ -499,5 +534,19 @@ button {
 
   .logo {
     font-size: 15px;
+  }
+
+  .hero h1 {
+    font-size: 36px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }

@@ -1011,58 +1011,70 @@ function addFavoriteButton(card) {
     });
   }
 
-  /* ---------- MEDIA LINK CHECKER ---------- */
+  
+/* ---------- MEDIA DOWNLOADER API ---------- */
 
-  const downloadInput = document.getElementById("downloadUrl");
-  const checkDownloadButton = document.getElementById("checkDownload");
-  const downloadMessage = document.getElementById("downloadMessage");
+const DOWNLOADER_API =
+  "https://miniapps-downloader-api.lildavid5h.workers.dev";
 
-  checkDownloadButton?.addEventListener("click", () => {
-    const value = downloadInput?.value.trim();
+const downloadInput = document.getElementById("downloadUrl");
+const checkDownloadButton = document.getElementById("checkDownload");
+const downloadMessage = document.getElementById("downloadMessage");
 
-    if (!value) {
-      downloadMessage.textContent = "Please paste a media link first.";
-      return;
+checkDownloadButton?.addEventListener("click", async () => {
+  const value = downloadInput?.value.trim();
+
+  if (!value) {
+    downloadMessage.textContent = "Please paste a media link first.";
+    return;
+  }
+
+  let mediaURL;
+
+  try {
+    mediaURL = new URL(value);
+
+    if (!["http:", "https:"].includes(mediaURL.protocol)) {
+      throw new Error("Invalid link");
+    }
+  } catch {
+    downloadMessage.textContent =
+      "Please enter a valid complete website link.";
+    return;
+  }
+
+  checkDownloadButton.disabled = true;
+  checkDownloadButton.textContent = "Checking...";
+  downloadMessage.textContent = "Connecting to downloader service...";
+
+  try {
+    const response = await fetch(
+      `${DOWNLOADER_API}/api/check?url=${encodeURIComponent(mediaURL.href)}`
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "The request failed.");
     }
 
-    let url;
-
-    try {
-      url = new URL(value);
-
-      if (!["http:", "https:"].includes(url.protocol)) {
-        throw new Error("Unsupported link.");
-      }
-    } catch {
+    if (data.available) {
       downloadMessage.textContent =
-        "That link is not valid. Please enter a complete website link.";
-      return;
+        `Media detected: ${data.mediaType}. ${data.message}`;
+    } else {
+      downloadMessage.textContent =
+        data.message || "No directly accessible media was detected.";
     }
 
-    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  } catch (error) {
+    downloadMessage.textContent =
+      `Downloader connection error: ${error.message}`;
+  } finally {
+    checkDownloadButton.disabled = false;
+    checkDownloadButton.textContent = "Check Link";
+  }
+});
 
-    const platforms = {
-      "tiktok.com": "TikTok",
-      "instagram.com": "Instagram",
-      "facebook.com": "Facebook",
-      "fb.watch": "Facebook",
-      "x.com": "X",
-      "twitter.com": "X",
-      "threads.net": "Threads",
-      "youtube.com": "YouTube",
-      "youtu.be": "YouTube",
-      "pinterest.com": "Pinterest",
-      "pin.it": "Pinterest"
-    };
-
-    const platform = Object.entries(platforms).find(([domain]) =>
-      host === domain || host.endsWith(`.${domain}`)
-    )?.[1];
-
-    downloadMessage.textContent = platform
-      ? `${platform} link recognised. Actual media downloading is not connected yet. The downloader backend still needs to be built.`
-      : "Link recognised, but this platform is not currently supported.";
-  });
 
   /* ---------- INITIALISE ---------- */
 

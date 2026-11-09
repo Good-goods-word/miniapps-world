@@ -281,46 +281,50 @@ document.addEventListener("DOMContentLoaded", () => {
     renderFavorites();
   });
 
-  /* ---------- PLATFORM OPENER ---------- */
+/* ---------- PLATFORM OPENER ---------- */
 
-  function openPlatform(card) {
-    const rawURL = card.dataset.platformUrl;
-    const name = card.dataset.name || "Platform";
+function openPlatform(card) {
+  const rawURL = card.dataset.platformUrl;
+  const name = card.dataset.name || "Platform";
 
-    if (!rawURL) return;
+  if (!rawURL) return;
 
-    let safeURL;
+  let safeURL;
 
-    try {
-      safeURL = new URL(rawURL);
+  try {
+    safeURL = new URL(rawURL);
 
-      if (
-        safeURL.protocol !== "https:" ||
-        !safeURL.hostname ||
-        safeURL.username ||
-        safeURL.password
-      ) {
-        throw new Error("Only valid secure website links are supported.");
-      }
-    } catch {
-      openModal(
-        name,
-        "<p>That platform link is not valid. Please check its official website address.</p>"
-      );
-      return;
+    if (
+      safeURL.protocol !== "https:" ||
+      !safeURL.hostname ||
+      safeURL.username ||
+      safeURL.password
+    ) {
+      throw new Error("Invalid website URL");
     }
-
-    /*
-      Open the official website as a top-level page in the current
-      browser/webview instead of placing it inside an iframe.
-
-      This gives websites that block iframe embedding a chance to load.
-      The browser or Telegram back button should return the user to the hub.
-      Some platforms may still redirect to their app or restrict access.
-    */
-
-    window.location.assign(safeURL.href);
+  } catch {
+    openModal(
+      name,
+      "<p>That platform link is not valid. Please check its official website address.</p>"
+    );
+    return;
   }
+
+  const newTab = window.open(
+    safeURL.href,
+    "_blank",
+    "noopener,noreferrer"
+  );
+
+  if (!newTab) {
+    openModal(
+      name,
+      `<p>Your browser blocked the new tab.</p>
+       <p><a href="${safeURL.href}" target="_blank" rel="noopener noreferrer">
+       Open ${name} website</a></p>`
+    );
+  }
+}
 
   /* ---------- CARD OPENING ---------- */
 

@@ -25,7 +25,7 @@ ALLOWED_DOMAINS = (
     "threads.net",
 )
 
-MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
+MAX_FILE_SIZE = 100 * 1024 * 1024
 
 
 @app.after_request
@@ -108,15 +108,21 @@ def download():
             download_name=os.path.basename(file_path)
         )
 
-        response.call_on_close(lambda: shutil.rmtree(folder, ignore_errors=True))
+        response.call_on_close(
+            lambda: shutil.rmtree(folder, ignore_errors=True)
+        )
         return response
 
-    except Exception:
+    except Exception as error:
+        print(f"Downloader error: {error}", flush=True)
         shutil.rmtree(folder, ignore_errors=True)
         return jsonify({
-            "error": "Download failed. The link may be unavailable or unsupported."
+            "error": "Download failed. Check backend logs for details."
         }), 400
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000))
+    )

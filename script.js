@@ -1,13 +1,25 @@
+
 /* ==========================================
    MY MINI APPS HUB
    COMPLETE SCRIPT.JS REPLACEMENT
    ========================================== */
 
 document.addEventListener("DOMContentLoaded", () => {
+  const modal = document.getElementById("appModal");
+  const modalContent = modal?.querySelector(".modal-content");
+  const modalTitle = document.getElementById("modalTitle");
+  const modalBody = document.getElementById("modalBody");
+  const closeModalButton = document.getElementById("closeModal");
+  const menuToggle = document.getElementById("menuToggle");
+  const navigation = document.getElementById("navigation");
 
-  // ==========================================
-  // EXTERNAL LIBRARY LOADER
-  // ==========================================
+  const FAVORITES_KEY = "myMiniAppsFavorites";
+  const NOTES_KEY = "miniHubNotes";
+
+  let gameBoard = ["", "", "", "", "", "", "", "", ""];
+  let gameOver = false;
+
+  /* ---------- HELPERS ---------- */
 
   function loadScript(url, globalName) {
     return new Promise((resolve, reject) => {
@@ -16,25 +28,42 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      const existing = document.querySelector(
+        `script[data-library="${globalName}"]`
+      );
+
+      if (existing) {
+        existing.addEventListener("load", () => {
+          window[globalName]
+            ? resolve(window[globalName])
+            : reject(new Error(`${globalName} did not load.`));
+        });
+
+        existing.addEventListener("error", () => {
+          reject(new Error(`Could not load ${globalName}.`));
+        });
+
+        return;
+      }
+
       const script = document.createElement("script");
       script.src = url;
+      script.async = true;
+      script.dataset.library = globalName;
 
       script.onload = () => {
-        if (window[globalName]) {
-          resolve(window[globalName]);
-        } else {
-          reject(new Error("Library failed to initialize."));
-        }
+        window[globalName]
+          ? resolve(window[globalName])
+          : reject(new Error(`${globalName} did not load.`));
       };
 
-      script.onerror = () => reject(new Error("Unable to load library."));
+      script.onerror = () => {
+        reject(new Error(`Could not load ${globalName}.`));
+      };
+
       document.head.appendChild(script);
     });
   }
-
-  // ==========================================
-  // SAFE HTML
-  // ==========================================
 
   function escapeHTML(value) {
     return String(value).replace(/[&<>"']/g, character => ({
@@ -42,389 +71,470 @@ document.addEventListener("DOMContentLoaded", () => {
       "<": "&lt;",
       ">": "&gt;",
       '"': "&quot;",
-      "'": "&#39;"
+      "'": "&#039;"
     })[character]);
   }
 
-  // ==========================================
-  // MOBILE NAVIGATION
-  // ==========================================
+  function getFavorites() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]");
+      return Array.isArray(saved) ? saved : [];
+    } catch {
+      return [];
+    }
+  }
 
-  const menuToggle = document.querySelector("#menuToggle");
-  const navLinks = document.querySelector(".nav-links");
+  function saveFavorites(favorites) {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
+  }
 
-  if (menuToggle && navLinks) {
+  function getCardKey(card) {
+    return card.dataset.app ||
+      card.dataset.platformUrl ||
+      card.dataset.name ||
+      "";
+  }
+
+  function getCardDetails(card) {
+    return {
+      key: getCardKey(card),
+      name: card.dataset.name || "App",
+      app: card.dataset.app || "",
+      platformUrl: card.dataset.platformUrl || "",
+      category: card.dataset.category || "",
+      content: card.innerHTML
+    };
+  }
+
+  /* ---------- MOBILE NAVIGATION ---------- */
+
+  if (menuToggle && navigation) {
     menuToggle.addEventListener("click", () => {
-      navLinks.classList.toggle("active");
+      const isOpen = navigation.classList.toggle("open");
+
+      menuToggle.setAttribute("aria-expanded", String(isOpen));
+      menuToggle.setAttribute(
+        "aria-label",
+        isOpen ? "Close navigation" : "Open navigation"
+      );
     });
 
-    navLinks.querySelectorAll("a").forEach(link => {
+    navigation.querySelectorAll("a").forEach(link => {
       link.addEventListener("click", () => {
-        navLinks.classList.remove("active");
+        navigation.classList.remove("open");
+        menuToggle.setAttribute("aria-expanded", "false");
+        menuToggle.setAttribute("aria-label", "Open navigation");
       });
+    });
+
+    document.addEventListener("click", event => {
+      if (
+        navigation.classList.contains("open") &&
+        !navigation.contains(event.target) &&
+        !menuToggle.contains(event.target)
+      ) {
+        navigation.classList.remove("open");
+        menuToggle.setAttribute("aria-expanded", "false");
+      }
     });
   }
 
-  // ==========================================
-  // SEARCH
-  // ==========================================
+  /* ---------- MODAL ---------- */
 
-  const searchInput = document.querySelector("#appSearch");
-
-  if (searchInput) {
-    searchInput.addEventListener("input", () => {
-      const query = searchInput.value.toLowerCase().trim();
-
-      document.querySelectorAll(".app-card").forEach(card => {
-        card.style.display = card.textContent.toLowerCase().includes(query)
-          ? ""
-          : "none";
-      });
-    });
-  }
-
-  // ==========================================
-  // CATEGORY FILTERS
-  // ==========================================
-
-  document.querySelectorAll("[data-category]").forEach(button => {
-    button.addEventListener("click", () => {
-      const category = button.dataset.category;
-
-      document.querySelectorAll("[data-category]").forEach(item => {
-        item.classList.remove("active");
-      });
-
-      button.classList.add("active");
-
-      document.querySelectorAll(".app-card").forEach(card => {
-        const cardCategory = card.dataset.category || "all";
-
-        card.style.display =
-          category === "all" || cardCategory === category ? "" : "none";
-      });
-
-      if (searchInput) searchInput.value = "";
-    });
-  });
-
-  // ==========================================
-  // MODAL
-  // ==========================================
-
-  const modal = document.querySelector("#appModal");
-  const modalTitle = document.querySelector("#modalTitle");
-  const modalBody = document.querySelector("#modalBody");
-  const closeModal = document.querySelector("#closeModal");
-
-  function showModal(title, content) {
-    if (!modal || !modalTitle || !modalBody) return;
+  function openModal(title, content, platformMode = false) {
+    if (!modal || !modalBody || !modalTitle) return;
 
     modalTitle.textContent = title;
     modalBody.innerHTML = content;
 
     modal.classList.add("show");
     modal.setAttribute("aria-hidden", "false");
-    document.body.style.overflow = "hidden";
+    document.body.classList.add("modal-open");
+
+    if (modalContent) {
+      modalContent.classList.toggle("platform-viewer", platformMode);
+    }
+
+    if (closeModalButton) closeModalButton.focus();
   }
 
-  function hideModal() {
+  function closeModal() {
     if (!modal) return;
 
     modal.classList.remove("show");
     modal.setAttribute("aria-hidden", "true");
-    document.body.style.overflow = "";
-  }
+    document.body.classList.remove("modal-open");
 
-  if (closeModal) {
-    closeModal.addEventListener("click", hideModal);
-  }
+    if (modalBody) modalBody.innerHTML = "";
 
-  if (modal) {
-    modal.addEventListener("click", event => {
-      if (event.target === modal) hideModal();
-    });
-  }
-
-  document.addEventListener("keydown", event => {
-    if (event.key === "Escape") hideModal();
-  });
-
-  // ==========================================
-  // FAVOURITES
-  // ==========================================
-
-  const FAVORITES_KEY = "myMiniAppsFavorites";
-
-  function getFavorites() {
-    try {
-      return JSON.parse(localStorage.getItem(FAVORITES_KEY)) || [];
-    } catch {
-      return [];
+    if (modalContent) {
+      modalContent.classList.remove("platform-viewer");
     }
   }
 
-  function saveFavorites(items) {
-    localStorage.setItem(FAVORITES_KEY, JSON.stringify(items));
-    renderFavorites();
-    updateFavoriteButtons();
+  closeModalButton?.addEventListener("click", closeModal);
+
+  modal?.addEventListener("click", event => {
+    if (event.target === modal) closeModal();
+  });
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && modal?.classList.contains("show")) {
+      closeModal();
+    }
+  });
+
+  /* ---------- FAVOURITES ---------- */
+
+  function addFavoriteButton(card) {
+    if (card.querySelector(":scope > .favorite-button")) return;
+
+    const favoriteButton = document.createElement("button");
+    favoriteButton.type = "button";
+    favoriteButton.className = "favorite-button";
+    favoriteButton.setAttribute("aria-label", "Add to favourites");
+    favoriteButton.innerHTML = "☆";
+
+    card.parentElement.appendChild(favoriteButton);
   }
 
-  function getCardDetails(card) {
-    return {
-      name: card.dataset.name ||
-        card.querySelector("h3")?.textContent ||
-        "App",
-      app: card.dataset.app || "",
-      description: card.querySelector("p")?.textContent || "",
-      icon: card.querySelector(".app-icon")?.textContent || "📱"
-    };
+  function refreshFavoriteButtons() {
+    const favorites = getFavorites();
+
+    document.querySelectorAll(
+      "#platformGrid .app-card, #miniAppsGrid .app-card"
+    ).forEach(card => {
+      addFavoriteButton(card);
+
+      const button = card.parentElement.querySelector(
+        ":scope > .favorite-button"
+      );
+
+      const active = favorites.includes(getCardKey(card));
+
+      button.classList.toggle("active", active);
+      button.innerHTML = active ? "★" : "☆";
+      button.setAttribute(
+        "aria-label",
+        active ? "Remove from favourites" : "Add to favourites"
+      );
+    });
   }
 
   function renderFavorites() {
-    const container = document.querySelector("#favoritesList");
-
+    const container = document.getElementById("favoriteApps");
     if (!container) return;
+
+    container.innerHTML = "";
 
     const favorites = getFavorites();
 
     if (!favorites.length) {
-      container.innerHTML = "<p>No favourites added yet.</p>";
+      container.innerHTML =
+        '<p class="empty-state">Your favourite apps will appear here.</p>';
       return;
     }
 
-    container.innerHTML = favorites.map(item => `
-      <button class="app-card mini-card"
-        data-app="${escapeHTML(item.app)}"
-        data-name="${escapeHTML(item.name)}">
-        <span class="app-icon">${escapeHTML(item.icon)}</span>
-        <h3>${escapeHTML(item.name)}</h3>
-        <p>${escapeHTML(item.description)}</p>
-      </button>
-    `).join("");
+    favorites.forEach(key => {
+      const original = document.querySelector(
+        `#platformGrid .app-card[data-name="${CSS.escape(key)}"], ` +
+        `#miniAppsGrid .app-card[data-name="${CSS.escape(key)}"]`
+      ) || Array.from(document.querySelectorAll(
+        "#platformGrid .app-card, #miniAppsGrid .app-card"
+      )).find(card => getCardKey(card) === key);
 
-    container.querySelectorAll("[data-app]").forEach(card => {
-      card.addEventListener("click", () => openMiniApp(card.dataset.app));
+      if (!original) return;
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "app-card-wrap";
+
+      const clone = original.cloneNode(true);
+      clone.classList.add("favorite-copy");
+
+      wrapper.appendChild(clone);
+
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.className = "favorite-button active";
+      removeButton.innerHTML = "★";
+      removeButton.setAttribute("aria-label", "Remove from favourites");
+
+      wrapper.appendChild(removeButton);
+      container.appendChild(wrapper);
     });
+
+    refreshFavoriteButtons();
   }
-
-  function updateFavoriteButtons() {
-    const favorites = getFavorites();
-
-    document.querySelectorAll(".app-card[data-app]").forEach(card => {
-      const button = card.querySelector(".favorite-button");
-
-      if (button) {
-        button.textContent = favorites.some(
-          item => item.app === card.dataset.app
-        ) ? "★" : "☆";
-      }
-    });
-  }
-
-  document.querySelectorAll(".app-card[data-app]").forEach(card => {
-    card.addEventListener("click", event => {
-      if (event.target.closest(".favorite-button")) return;
-      openMiniApp(card.dataset.app);
-    });
-  });
 
   document.addEventListener("click", event => {
-    const button = event.target.closest(".favorite-button");
+    const favoriteButton = event.target.closest(".favorite-button");
+    if (!favoriteButton) return;
 
-    if (!button) return;
-
+    event.preventDefault();
     event.stopPropagation();
 
-    const card = button.closest(".app-card");
+    const wrapper = favoriteButton.closest(".app-card-wrap");
+    const card = wrapper?.querySelector(".app-card");
     if (!card) return;
 
-    const details = getCardDetails(card);
+    const key = getCardKey(card);
+    if (!key) return;
+
     let favorites = getFavorites();
 
-    if (favorites.some(item => item.app === details.app)) {
-      favorites = favorites.filter(item => item.app !== details.app);
+    if (favorites.includes(key)) {
+      favorites = favorites.filter(item => item !== key);
     } else {
-      favorites.push(details);
+      favorites.push(key);
     }
 
     saveFavorites(favorites);
+    refreshFavoriteButtons();
+    renderFavorites();
   });
 
-  // ==========================================
-  // ADVANCED MATHEMATICS CALCULATOR
-  // ==========================================
+  /* ---------- PLATFORM VIEWER ---------- */
 
-  async function openCalculator() {
-    showModal("Advanced Calculator", `
-      <div class="calculator-app">
+  function openPlatform(card) {
+    const url = card.dataset.platformUrl;
+    const name = card.dataset.name || "Platform";
 
-        <p>Enter a mathematical expression or choose an operation.</p>
+    if (!url) return;
 
-        <label for="calcMode">Operation</label>
+    let safeURL;
 
-        <select id="calcMode">
-          <option value="calculate">Calculate</option>
-          <option value="simplify">Simplify expression</option>
-          <option value="derivative">Find derivative</option>
-          <option value="solve">Solve equation for x</option>
-          <option value="integrate">Numerical integration</option>
-          <option value="statistics">Statistics</option>
-          <option value="matrix">Matrix calculations</option>
-        </select>
+    try {
+      safeURL = new URL(url);
 
-        <label for="calcInput">Mathematical expression</label>
-
-        <textarea id="calcInput" rows="3"
-          placeholder="Example: 5009 * 6% * 7 + 500 - 2"></textarea>
-
-        <div id="calcExtra"></div>
-
-        <button type="button" id="calculateButton">
-          Calculate
-        </button>
-
-        <div class="calculator-result">
-          <strong>Result</strong>
-          <pre id="calcResult">Your answer will appear here.</pre>
-          <button type="button" id="copyCalcResult">Copy result</button>
-        </div>
-
-        <p>
-          Examples: 25% of 400, sqrt(144), sin(30 deg),
-          log(100), 2^8, 5!, 5009 * 6% * 7 + 500 - 2
-        </p>
-
-      </div>
-    `);
-
-    const input = document.querySelector("#calcInput");
-    const mode = document.querySelector("#calcMode");
-    const extra = document.querySelector("#calcExtra");
-    const result = document.querySelector("#calcResult");
-    const calculateButton = document.querySelector("#calculateButton");
-    const copyButton = document.querySelector("#copyCalcResult");
-
-    if (!input || !mode || !extra || !result) return;
-
-    let lastResult = "";
-
-    function updateExtra() {
-      if (mode.value === "solve") {
-        extra.innerHTML = `
-          <label for="solveRange">Search interval</label>
-          <input id="solveRange" type="text" value="-100,100">
-          <small>Example equation: x^2 = 25</small>
-        `;
-      } else if (mode.value === "integrate") {
-        extra.innerHTML = `
-          <label for="integrateRange">Integration limits</label>
-          <input id="integrateRange" type="text" value="0,1">
-        `;
-      } else if (mode.value === "derivative") {
-        extra.innerHTML = `
-          <label for="derivativeVariable">Variable</label>
-          <input id="derivativeVariable" type="text" value="x">
-        `;
-      } else {
-        extra.innerHTML = "";
+      if (safeURL.protocol !== "https:") {
+        throw new Error("Only secure website links are supported.");
       }
+    } catch {
+      openModal(name, "<p>That platform link is not valid.</p>");
+      return;
     }
 
-    mode.addEventListener("change", updateExtra);
-    updateExtra();
+    const content = `
+      <p class="platform-note">
+        This platform is being opened inside My Mini Apps Hub.
+        Some websites block embedded viewing, so the panel may not load.
+      </p>
 
-    async function getMath() {
-      return loadScript(
+      <iframe
+        class="platform-frame"
+        src="${escapeHTML(safeURL.href)}"
+        title="${escapeHTML(name)}"
+        loading="lazy"
+        referrerpolicy="strict-origin-when-cross-origin"
+        allow="clipboard-read; clipboard-write; fullscreen"
+        allowfullscreen>
+      </iframe>
+
+      <p class="platform-note">
+        If the website does not appear, use its official website link below.
+      </p>
+
+      <a
+        class="platform-fallback"
+        href="${escapeHTML(safeURL.href)}"
+        target="_blank"
+        rel="noopener noreferrer">
+        Open official ${escapeHTML(name)} website
+      </a>
+    `;
+
+    openModal(name, content, true);
+  }
+
+  /* ---------- CARD OPENING ---------- */
+
+  function activateCard(card) {
+    if (card.dataset.platformUrl) {
+      openPlatform(card);
+      return;
+    }
+
+    if (card.dataset.app) {
+      openMiniApp(card.dataset.app);
+    }
+  }
+
+  document.addEventListener("click", event => {
+    const card = event.target.closest(".app-card");
+
+    if (!card || event.target.closest(".favorite-button")) return;
+
+    activateCard(card);
+  });
+
+  document.addEventListener("keydown", event => {
+    const card = event.target.closest(".app-card[role='button']");
+
+    if (!card || event.target.closest(".favorite-button")) return;
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      activateCard(card);
+    }
+  });
+
+  /* ---------- MINI APP ROUTER ---------- */
+
+  function openMiniApp(app) {
+    switch (app) {
+      case "calculator":
+        openCalculator();
+        break;
+      case "notes":
+        openNotes();
+        break;
+      case "converter":
+        openConverter();
+        break;
+      case "game":
+        openGame();
+        break;
+      case "qrcode":
+        openQRCode();
+        break;
+      default:
+        openModal("Mini App", "<p>This mini app is not available yet.</p>");
+    }
+  }
+
+  /* ---------- SCIENTIFIC CALCULATOR ---------- */
+
+  async function openCalculator() {
+    openModal("Scientific Calculator", `
+      <p class="platform-note">
+        Supports numerical calculations, simplification, derivatives,
+        equation solving, integration, statistics and matrices.
+      </p>
+
+      <input
+        id="calculatorInput"
+        class="calculator-display"
+        type="text"
+        placeholder="Enter a calculation or expression"
+        autocomplete="off">
+
+      <label for="calculatorMode">Operation</label>
+      <select id="calculatorMode">
+        <option value="calculate">Calculate</option>
+        <option value="simplify">Simplify expression</option>
+        <option value="derivative">Differentiate (d/dx)</option>
+        <option value="solve">Solve equation (numerically)</option>
+        <option value="integrate">Numerical integration</option>
+        <option value="statistics">Statistics (comma-separated numbers)</option>
+      </select>
+
+      <div>
+        <button type="button" id="runCalculation">Calculate</button>
+        <button type="button" id="clearCalculation">Clear</button>
+      </div>
+
+      <p><strong>Result</strong></p>
+      <div id="calculatorResult" aria-live="polite">
+        Your result will appear here.
+      </div>
+
+      <h3>Calculation history</h3>
+      <div id="calculatorHistory"></div>
+    `);
+
+    try {
+      await loadScript(
         "https://cdnjs.cloudflare.com/ajax/libs/mathjs/14.8.1/math.min.js",
         "math"
       );
+    } catch {
+      const result = document.getElementById("calculatorResult");
+      if (result) {
+        result.textContent =
+          "Calculator library could not load. Check your internet connection and try again.";
+      }
+      return;
     }
+
+    const input = document.getElementById("calculatorInput");
+    const mode = document.getElementById("calculatorMode");
+    const resultBox = document.getElementById("calculatorResult");
+    const historyBox = document.getElementById("calculatorHistory");
+
+    if (!input || !mode || !resultBox) return;
 
     function prepareExpression(expression) {
       let value = expression
-        .replace(/[×]/g, "*")
+        .replace(/[×✕]/g, "*")
         .replace(/[÷]/g, "/")
-        .replace(/[−]/g, "-")
+        .replace(/[−–]/g, "-")
         .replace(/\bof\b/gi, "*");
 
-      // Convert percentages correctly:
-      // 6% becomes 6/100.
       value = value.replace(
         /(\d+(?:\.\d+)?)\s*%/g,
         "($1/100)"
       );
 
-      // Support implicit multiplication: 2(3+4).
-      value = value.replace(/(\d)\s*\(/g, "$1*(");
-
-      return value.trim();
+      return value;
     }
 
-    function evaluateExpression(mathEngine, expression, scope = {}) {
-      return mathEngine.evaluate(
-        prepareExpression(expression),
-        scope
-      );
-    }
-
-    function solveEquation(mathEngine, equation, low, high) {
+    function numericalRoots(equation, variable = "x", min = -100, max = 100) {
       const parts = equation.split("=");
 
       if (parts.length !== 2) {
-        throw new Error("Use an equation such as x^2 = 25.");
+        throw new Error("Enter an equation using =, for example x^2 = 9.");
       }
 
-      const left = prepareExpression(parts[0]);
-      const right = prepareExpression(parts[1]);
+      const left = math.compile(prepareExpression(parts[0]));
+      const right = math.compile(prepareExpression(parts[1]));
 
       const fn = x => {
-        return mathEngine.evaluate(left, { x }) -
-          mathEngine.evaluate(right, { x });
+        const scope = { [variable]: x };
+        return left.evaluate(scope) - right.evaluate(scope);
       };
 
       const roots = [];
       const steps = 4000;
+      const step = (max - min) / steps;
 
-      let previousX = low;
+      let previousX = min;
       let previousY = fn(previousX);
 
       for (let i = 1; i <= steps; i++) {
-        const currentX = low + (high - low) * i / steps;
+        const currentX = min + i * step;
         const currentY = fn(currentX);
 
-        if (
-          Number.isFinite(previousY) &&
-          Number.isFinite(currentY)
-        ) {
-          if (Math.abs(previousY) < 1e-9) {
-            roots.push(previousX);
-          }
+        if (!Number.isFinite(currentY)) {
+          previousX = currentX;
+          previousY = currentY;
+          continue;
+        }
 
-          if (previousY * currentY < 0) {
-            let a = previousX;
-            let b = currentX;
-            let fa = previousY;
+        if (Number.isFinite(previousY) && previousY * currentY < 0) {
+          let low = previousX;
+          let high = currentX;
 
-            for (let j = 0; j < 70; j++) {
-              const middle = (a + b) / 2;
-              const fm = fn(middle);
+          for (let j = 0; j < 60; j++) {
+            const middle = (low + high) / 2;
+            const middleY = fn(middle);
 
-              if (Math.abs(fm) < 1e-12) {
-                a = middle;
-                b = middle;
-                break;
-              }
-
-              if (fa * fm <= 0) {
-                b = middle;
-              } else {
-                a = middle;
-                fa = fm;
-              }
+            if (Math.abs(middleY) < 1e-10) {
+              low = middle;
+              high = middle;
+              break;
             }
 
-            roots.push((a + b) / 2);
+            if (fn(low) * middleY <= 0) {
+              high = middle;
+            } else {
+              low = middle;
+            }
+          }
+
+          const root = (low + high) / 2;
+
+          if (!roots.some(item => Math.abs(item - root) < 1e-5)) {
+            roots.push(root);
           }
         }
 
@@ -432,570 +542,414 @@ document.addEventListener("DOMContentLoaded", () => {
         previousY = currentY;
       }
 
-      const uniqueRoots = roots.filter((value, index, array) =>
-        array.findIndex(other =>
-          Math.abs(other - value) < 1e-5
-        ) === index
-      );
-
-      if (!uniqueRoots.length) {
-        throw new Error(
-          "No numerical root found in this interval. Try a wider interval."
-        );
-      }
-
-      return uniqueRoots;
+      return roots;
     }
 
-    function integrateSimpson(mathEngine, expression, a, b) {
-      const n = 10000;
-      const h = (b - a) / n;
+    function integrateNumerically(expression, variable, lower, upper) {
+      const compiled = math.compile(prepareExpression(expression));
+      const intervals = 2000;
+      const h = (upper - lower) / intervals;
 
-      let sum =
-        mathEngine.evaluate(expression, { x: a }) +
-        mathEngine.evaluate(expression, { x: b });
+      const fn = x => compiled.evaluate({ [variable]: x });
 
-      for (let i = 1; i < n; i++) {
-        const x = a + i * h;
-        const y = mathEngine.evaluate(expression, { x });
+      let sum = fn(lower) + fn(upper);
 
-        sum += (i % 2 === 0 ? 2 : 4) * y;
+      for (let i = 1; i < intervals; i++) {
+        sum += (i % 2 === 0 ? 2 : 4) * fn(lower + i * h);
       }
 
-      return sum * h / 3;
+      return (h / 3) * sum;
     }
 
-    calculateButton.addEventListener("click", async () => {
+    function calculate() {
       const expression = input.value.trim();
 
       if (!expression) {
-        result.textContent = "Please enter an expression.";
+        resultBox.textContent = "Enter something to calculate.";
         return;
       }
 
-      result.textContent = "Calculating...";
-
       try {
-        const mathEngine = await getMath();
-        let answer;
+        const selectedMode = mode.value;
+        let result;
 
-        if (mode.value === "calculate") {
-          answer = evaluateExpression(mathEngine, expression);
+        if (selectedMode === "calculate") {
+          result = math.evaluate(prepareExpression(expression));
         }
 
-        if (mode.value === "simplify") {
-          answer = mathEngine.simplify(
-            prepareExpression(expression)
-          ).toString();
+        if (selectedMode === "simplify") {
+          result = math.simplify(prepareExpression(expression)).toString();
         }
 
-        if (mode.value === "derivative") {
-          const variable =
-            document.querySelector("#derivativeVariable")?.value.trim() || "x";
+        if (selectedMode === "derivative") {
+          const parts = expression.split("|");
+          const formula = parts[0];
+          const variable = parts[1] || "x";
 
-          answer = mathEngine.derivative(
-            prepareExpression(expression),
+          result = math.derivative(
+            prepareExpression(formula),
             variable
           ).toString();
         }
 
-        if (mode.value === "solve") {
-          const rangeText =
-            document.querySelector("#solveRange")?.value || "-100,100";
+        if (selectedMode === "solve") {
+          const parts = expression.split("|");
+          const equation = parts[0];
+          const variable = parts[1] || "x";
 
-          const range = rangeText.split(",").map(Number);
+          const roots = numericalRoots(equation, variable);
 
-          if (
-            range.length !== 2 ||
-            !range.every(Number.isFinite) ||
-            range[0] >= range[1]
-          ) {
-            throw new Error("Enter a valid interval, such as -100,100.");
-          }
-
-          const roots = solveEquation(
-            mathEngine,
-            expression,
-            range[0],
-            range[1]
-          );
-
-          answer = roots.map((root, index) =>
-            `x${roots.length > 1 ? index + 1 : ""} = ${root}`
-          ).join("\n");
+          result = roots.length
+            ? roots.map(root => `${variable} = ${root}`).join("\n")
+            : "No sign-changing roots found in the interval -100 to 100.";
         }
 
-        if (mode.value === "integrate") {
-          const rangeText =
-            document.querySelector("#integrateRange")?.value || "0,1";
+        if (selectedMode === "integrate") {
+          const parts = expression.split("|");
 
-          const range = rangeText.split(",").map(Number);
-
-          if (
-            range.length !== 2 ||
-            !range.every(Number.isFinite)
-          ) {
-            throw new Error("Enter two valid integration limits.");
-          }
-
-          answer = integrateSimpson(
-            mathEngine,
-            prepareExpression(expression),
-            range[0],
-            range[1]
-          );
-        }
-
-        if (mode.value === "statistics") {
-          const values = expression
-            .split(/[,;\s]+/)
-            .filter(Boolean)
-            .map(Number);
-
-          if (
-            !values.length ||
-            values.some(value => !Number.isFinite(value))
-          ) {
+          if (parts.length < 3) {
             throw new Error(
-              "Enter numbers separated by commas, such as 2,4,6,8."
+              "Use this format: x^2 | 0 | 2. Optional variable: x^2 | 0 | 2 | x"
             );
           }
 
-          answer = [
-            `Count: ${values.length}`,
-            `Sum: ${mathEngine.sum(values)}`,
-            `Mean: ${mathEngine.mean(values)}`,
-            `Median: ${mathEngine.median(values)}`,
-            `Minimum: ${Math.min(...values)}`,
-            `Maximum: ${Math.max(...values)}`,
-            `Range: ${Math.max(...values) - Math.min(...values)}`,
-            `Standard deviation: ${mathEngine.std(values)}`
-          ].join("\n");
-        }
+          const formula = parts[0];
+          const lower = Number(parts[1]);
+          const upper = Number(parts[2]);
+          const variable = parts[3] || "x";
 
-        if (mode.value === "matrix") {
-          const matrix = mathEngine.evaluate(expression);
-
-          if (!Array.isArray(matrix)) {
-            throw new Error(
-              "Enter a matrix such as [[1,2],[3,4]]."
-            );
+          if (!Number.isFinite(lower) || !Number.isFinite(upper)) {
+            throw new Error("Enter valid integration limits.");
           }
 
-          answer = `Matrix:\n${mathEngine.format(matrix)}`;
-
-          try {
-            answer += `\n\nDeterminant: ${mathEngine.det(matrix)}`;
-            answer += `\n\nTranspose:\n${mathEngine.format(
-              mathEngine.transpose(matrix)
-            )}`;
-            answer += `\n\nInverse:\n${mathEngine.format(
-              mathEngine.inv(matrix)
-            )}`;
-          } catch {
-            answer += "\nSome matrix operations are unavailable.";
-          }
+          result = integrateNumerically(
+            formula,
+            variable,
+            lower,
+            upper
+          );
         }
 
-        if (typeof answer === "number") {
-          if (!Number.isFinite(answer)) {
-            throw new Error("The answer is not a finite number.");
+        if (selectedMode === "statistics") {
+          const numbers = expression.split(",").map(Number);
+
+          if (
+            numbers.length < 1 ||
+            numbers.some(number => !Number.isFinite(number))
+          ) {
+            throw new Error("Enter numbers separated by commas.");
           }
 
-          answer = Number(answer.toPrecision(12)).toString();
+          const sorted = [...numbers].sort((a, b) => a - b);
+          const sum = math.sum(numbers);
+          const mean = math.mean(numbers);
+          const median = math.median(numbers);
+
+          result =
+            `Count: ${numbers.length}\n` +
+            `Sum: ${sum}\n` +
+            `Mean: ${mean}\n` +
+            `Median: ${median}\n` +
+            `Minimum: ${sorted[0]}\n` +
+            `Maximum: ${sorted[sorted.length - 1]}\n` +
+            `Standard deviation: ${math.std(numbers)}`;
         }
 
-        lastResult = String(answer);
-        result.textContent = lastResult;
+        const output = typeof result === "object" &&
+          result !== null &&
+          typeof result.toString === "function"
+          ? result.toString()
+          : String(result);
 
+        resultBox.style.whiteSpace = "pre-wrap";
+        resultBox.textContent = output;
+
+        if (historyBox) {
+          const entry = document.createElement("p");
+          entry.textContent = `${expression} = ${output}`;
+          historyBox.prepend(entry);
+        }
       } catch (error) {
-        lastResult = "";
-        result.textContent = "Unable to calculate: " + error.message;
+        resultBox.textContent = `Unable to calculate: ${error.message}`;
       }
+    }
+
+    document.getElementById("runCalculation")
+      ?.addEventListener("click", calculate);
+
+    input.addEventListener("keydown", event => {
+      if (event.key === "Enter") calculate();
     });
 
-    copyButton.addEventListener("click", async () => {
-      if (!lastResult) {
-        result.textContent = "Calculate something first.";
-        return;
-      }
-
-      try {
-        await navigator.clipboard.writeText(lastResult);
-        copyButton.textContent = "Copied!";
-        setTimeout(() => {
-          copyButton.textContent = "Copy result";
-        }, 1500);
-      } catch {
-        result.textContent += "\nCopy is unavailable in this browser.";
-      }
-    });
-  }
-
-  // ==========================================
-  // NOTES APP
-  // ==========================================
-
-  function openNotes() {
-    showModal("My Notes", `
-      <div class="notes-app">
-        <input id="noteTitle" type="text" placeholder="Note title">
-        <textarea id="noteContent" rows="5"
-          placeholder="Write your note here..."></textarea>
-
-        <button id="saveNote">Save Note</button>
-
-        <input id="noteSearch" type="search"
-          placeholder="Search notes...">
-
-        <div id="notesList"></div>
-      </div>
-    `);
-
-    const title = document.querySelector("#noteTitle");
-    const content = document.querySelector("#noteContent");
-    const list = document.querySelector("#notesList");
-    const search = document.querySelector("#noteSearch");
-
-    let notes = [];
-
-    try {
-      const stored = JSON.parse(localStorage.getItem("miniHubNotes"));
-
-      notes = Array.isArray(stored)
-        ? stored
-        : typeof stored === "string" && stored
-          ? [{ id: Date.now(), title: "My Note", content: stored }]
-          : [];
-    } catch {
-      notes = [];
-    }
-
-    function save() {
-      localStorage.setItem("miniHubNotes", JSON.stringify(notes));
-    }
-
-    function render() {
-      const query = search.value.toLowerCase();
-
-      const filtered = notes.filter(note =>
-        `${note.title} ${note.content}`.toLowerCase().includes(query)
-      );
-
-      list.innerHTML = filtered.length
-        ? filtered.map(note => `
-            <div class="note-item">
-              <h3>${escapeHTML(note.title)}</h3>
-              <p>${escapeHTML(note.content)}</p>
-              <button data-delete-note="${note.id}">Delete</button>
-            </div>
-          `).join("")
-        : "<p>No notes found.</p>";
-    }
-
-    document.querySelector("#saveNote").addEventListener("click", () => {
-      if (!content.value.trim()) {
-        alert("Write something before saving.");
-        return;
-      }
-
-      notes.unshift({
-        id: Date.now(),
-        title: title.value.trim() || "Untitled Note",
-        content: content.value.trim()
+    document.getElementById("clearCalculation")
+      ?.addEventListener("click", () => {
+        input.value = "";
+        resultBox.textContent = "Your result will appear here.";
+        if (historyBox) historyBox.innerHTML = "";
       });
 
-      save();
-
-      title.value = "";
-      content.value = "";
-
-      render();
-    });
-
-    search.addEventListener("input", render);
-
-    list.addEventListener("click", event => {
-      const button = event.target.closest("[data-delete-note]");
-
-      if (!button) return;
-
-      notes = notes.filter(
-        note => note.id !== Number(button.dataset.deleteNote)
-      );
-
-      save();
-      render();
-    });
-
-    render();
+    input.focus();
   }
 
-  // ==========================================
-  // UNIT CONVERTER
-  // ==========================================
+  /* ---------- NOTES ---------- */
+
+  function openNotes() {
+    let savedNotes = "";
+
+    try {
+      savedNotes = localStorage.getItem(NOTES_KEY) || "";
+    } catch {
+      savedNotes = "";
+    }
+
+    openModal("Notes", `
+      <p class="platform-note">Your notes are saved on this device.</p>
+      <textarea id="notesInput"
+        placeholder="Write your notes here...">${escapeHTML(savedNotes)}</textarea>
+      <button type="button" id="saveNotes">Save notes</button>
+      <button type="button" id="clearNotes">Clear notes</button>
+      <p id="notesMessage" aria-live="polite"></p>
+    `);
+
+    const textarea = document.getElementById("notesInput");
+    const message = document.getElementById("notesMessage");
+
+    document.getElementById("saveNotes")?.addEventListener("click", () => {
+      try {
+        localStorage.setItem(NOTES_KEY, textarea.value);
+        message.textContent = "Notes saved successfully.";
+      } catch {
+        message.textContent = "Could not save notes on this device.";
+      }
+    });
+
+    document.getElementById("clearNotes")?.addEventListener("click", () => {
+      textarea.value = "";
+      localStorage.removeItem(NOTES_KEY);
+      message.textContent = "Notes cleared.";
+    });
+  }
+
+  /* ---------- UNIT CONVERTER ---------- */
 
   function openConverter() {
+    openModal("Unit Converter", `
+      <label for="converterCategory">Category</label>
+      <select id="converterCategory">
+        <option value="length">Length</option>
+        <option value="weight">Weight</option>
+        <option value="time">Time</option>
+        <option value="speed">Speed</option>
+        <option value="volume">Volume</option>
+        <option value="area">Area</option>
+        <option value="temperature">Temperature</option>
+      </select>
+
+      <label for="converterValue">Value</label>
+      <input id="converterValue" type="number" value="1">
+
+      <label for="converterFrom">From</label>
+      <select id="converterFrom"></select>
+
+      <label for="converterTo">To</label>
+      <select id="converterTo"></select>
+
+      <button type="button" id="convertButton">Convert</button>
+      <p id="converterResult" aria-live="polite">Your result will appear here.</p>
+    `);
+
     const units = {
-      Length: {
-        Meter: 1,
-        Kilometer: 1000,
-        Centimeter: 0.01,
-        Millimeter: 0.001,
-        Mile: 1609.344,
-        Yard: 0.9144,
-        Foot: 0.3048,
-        Inch: 0.0254
+      length: {
+        m: 1, km: 1000, cm: 0.01, mm: 0.001,
+        mile: 1609.344, yard: 0.9144, foot: 0.3048, inch: 0.0254
       },
-
-      Weight: {
-        Kilogram: 1,
-        Gram: 0.001,
-        Milligram: 0.000001,
-        Pound: 0.45359237,
-        Ounce: 0.0283495,
-        Tonne: 1000
+      weight: {
+        kg: 1, g: 0.001, mg: 0.000001,
+        tonne: 1000, pound: 0.45359237, ounce: 0.028349523125
       },
-
-      Time: {
-        Second: 1,
-        Minute: 60,
-        Hour: 3600,
-        Day: 86400,
-        Week: 604800
+      time: {
+        second: 1, minute: 60, hour: 3600,
+        day: 86400, week: 604800
       },
-
-      Speed: {
-        "Meters/second": 1,
-        "Kilometers/hour": 0.2777778,
-        "Miles/hour": 0.44704
+      speed: {
+        "m/s": 1, "km/h": 1 / 3.6, mph: 0.44704
       },
-
-      Volume: {
-        Liter: 1,
-        Milliliter: 0.001,
-        "US gallon": 3.78541,
-        Cup: 0.236588
+      volume: {
+        litre: 1, ml: 0.001, "cubic metre": 1000,
+        gallon: 3.785411784, cup: 0.2365882365
       },
-
-      Area: {
-        "Square meter": 1,
-        "Square kilometer": 1000000,
-        "Square foot": 0.092903,
-        Acre: 4046.856
+      area: {
+        "square metre": 1, "square kilometre": 1000000,
+        hectare: 10000, acre: 4046.8564224,
+        "square foot": 0.09290304
+      },
+      temperature: {
+        Celsius: "C", Fahrenheit: "F", Kelvin: "K"
       }
     };
 
-    showModal("Unit Converter", `
-      <div class="converter-app">
+    const category = document.getElementById("converterCategory");
+    const from = document.getElementById("converterFrom");
+    const to = document.getElementById("converterTo");
+    const value = document.getElementById("converterValue");
+    const result = document.getElementById("converterResult");
 
-        <label>Category</label>
-        <select id="conversionCategory">
-          ${Object.keys(units).concat("Temperature").map(name =>
-            `<option value="${name}">${name}</option>`
-          ).join("")}
-        </select>
+    function populateUnits() {
+      const options = Object.keys(units[category.value]);
 
-        <label>Amount</label>
-        <input type="number" id="conversionAmount" value="1">
+      from.innerHTML = "";
+      to.innerHTML = "";
 
-        <label>From</label>
-        <select id="conversionFrom"></select>
+      options.forEach(unit => {
+        from.add(new Option(unit, unit));
+        to.add(new Option(unit, unit));
+      });
 
-        <label>To</label>
-        <select id="conversionTo"></select>
+      if (options.length > 1) to.selectedIndex = 1;
+    }
 
-        <button id="convertButton">Convert</button>
+    function convertTemperature(number, source, destination) {
+      let celsius = number;
 
-        <h3 id="conversionResult">Result will appear here.</h3>
+      if (source === "Fahrenheit") celsius = (number - 32) * 5 / 9;
+      if (source === "Kelvin") celsius = number - 273.15;
 
-      </div>
-    `);
+      if (destination === "Fahrenheit") return celsius * 9 / 5 + 32;
+      if (destination === "Kelvin") return celsius + 273.15;
 
-    const category = document.querySelector("#conversionCategory");
-    const amount = document.querySelector("#conversionAmount");
-    const from = document.querySelector("#conversionFrom");
-    const to = document.querySelector("#conversionTo");
-    const result = document.querySelector("#conversionResult");
+      return celsius;
+    }
 
     function convert() {
-      const value = Number(amount.value);
+      const number = Number(value.value);
 
-      if (!Number.isFinite(value)) {
+      if (!Number.isFinite(number)) {
         result.textContent = "Enter a valid number.";
         return;
       }
 
       let answer;
 
-      if (category.value === "Temperature") {
-        let celsius = value;
-
-        if (from.value === "Fahrenheit") {
-          celsius = (value - 32) * 5 / 9;
-        }
-
-        if (from.value === "Kelvin") {
-          celsius = value - 273.15;
-        }
-
-        answer = celsius;
-
-        if (to.value === "Fahrenheit") {
-          answer = celsius * 9 / 5 + 32;
-        }
-
-        if (to.value === "Kelvin") {
-          answer = celsius + 273.15;
-        }
-
+      if (category.value === "temperature") {
+        answer = convertTemperature(number, from.value, to.value);
       } else {
-        answer = value *
+        answer = number *
           units[category.value][from.value] /
           units[category.value][to.value];
       }
 
-      result.textContent =
-        `${value} ${from.value} = ${Number(answer.toPrecision(10))} ${to.value}`;
+      result.textContent = `${number} ${from.value} = ${Number(answer.toPrecision(12))} ${to.value}`;
     }
 
-    function populate() {
-      const names = category.value === "Temperature"
-        ? ["Celsius", "Fahrenheit", "Kelvin"]
-        : Object.keys(units[category.value]);
+    category.addEventListener("change", populateUnits);
+    document.getElementById("convertButton")
+      ?.addEventListener("click", convert);
 
-      from.innerHTML = names.map(name =>
-        `<option value="${name}">${name}</option>`
-      ).join("");
-
-      to.innerHTML = names.map(name =>
-        `<option value="${name}">${name}</option>`
-      ).join("");
-
-      if (names.length > 1) to.selectedIndex = 1;
-
-      convert();
-    }
-
-    category.addEventListener("change", populate);
-    amount.addEventListener("input", convert);
-    from.addEventListener("change", convert);
-    to.addEventListener("change", convert);
-
-    document.querySelector("#convertButton")
-      .addEventListener("click", convert);
-
-    populate();
+    populateUnits();
   }
 
-  // ==========================================
-  // TIC TAC TOE
-  // ==========================================
+  /* ---------- TIC TAC TOE ---------- */
 
   function openGame() {
-    showModal("Tic Tac Toe", `
-      <div class="game-app">
+    gameBoard = ["", "", "", "", "", "", "", "", ""];
+    gameOver = false;
 
-        <h3 id="gameStatus">Player X's turn</h3>
-
-        <div id="gameBoard" class="tic-tac-toe-board">
-          ${Array.from({ length: 9 }, (_, index) =>
-            `<button class="game-cell" data-cell="${index}"></button>`
-          ).join("")}
-        </div>
-
-        <button id="restartGame">Restart Game</button>
-
+    openModal("Tic Tac Toe", `
+      <p id="gameStatus" aria-live="polite">Player X's turn</p>
+      <div class="game-board" id="gameBoard">
+        ${gameBoard.map((_, index) =>
+          `<button class="game-cell" type="button" data-cell="${index}" aria-label="Cell ${index + 1}"></button>`
+        ).join("")}
       </div>
+      <button type="button" id="restartGame">Restart game</button>
     `);
 
-    const board = Array(9).fill("");
-    let current = "X";
-    let finished = false;
-
-    const status = document.querySelector("#gameStatus");
-    const cells = document.querySelectorAll("[data-cell]");
-
-    const wins = [
-      [0, 1, 2],
-      [3, 4, 5],
-      [6, 7, 8],
-      [0, 3, 6],
-      [1, 4, 7],
-      [2, 5, 8],
-      [0, 4, 8],
-      [2, 4, 6]
+    const winningLines = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8],
+      [0, 3, 6], [1, 4, 7], [2, 5, 8],
+      [0, 4, 8], [2, 4, 6]
     ];
 
-    cells.forEach(cell => {
-      cell.addEventListener("click", () => {
+    function checkWinner() {
+      for (const line of winningLines) {
+        const [a, b, c] = line;
+
+        if (
+          gameBoard[a] &&
+          gameBoard[a] === gameBoard[b] &&
+          gameBoard[a] === gameBoard[c]
+        ) {
+          return gameBoard[a];
+        }
+      }
+
+      return null;
+    }
+
+    function renderGame() {
+      document.querySelectorAll(".game-cell").forEach(cell => {
         const index = Number(cell.dataset.cell);
+        cell.textContent = gameBoard[index];
+        cell.disabled = Boolean(gameBoard[index]) || gameOver;
+      });
+    }
 
-        if (finished || board[index]) return;
+    document.getElementById("gameBoard")
+      ?.addEventListener("click", event => {
+        const cell = event.target.closest("[data-cell]");
+        if (!cell || gameOver) return;
 
-        board[index] = current;
-        cell.textContent = current;
+        const index = Number(cell.dataset.cell);
+        if (gameBoard[index]) return;
 
-        const winner = wins.find(line =>
-          line.every(position => board[position] === current)
-        );
+        const currentPlayer = gameBoard.filter(Boolean).length % 2 === 0
+          ? "X"
+          : "O";
+
+        gameBoard[index] = currentPlayer;
+
+        const winner = checkWinner();
+        const status = document.getElementById("gameStatus");
 
         if (winner) {
-          status.textContent = `Player ${current} wins!`;
-          finished = true;
-          return;
-        }
-
-        if (board.every(Boolean)) {
+          gameOver = true;
+          status.textContent = `Player ${winner} wins!`;
+        } else if (gameBoard.every(Boolean)) {
+          gameOver = true;
           status.textContent = "It's a draw!";
-          finished = true;
-          return;
+        } else {
+          status.textContent =
+            `Player ${currentPlayer === "X" ? "O" : "X"}'s turn`;
         }
 
-        current = current === "X" ? "O" : "X";
-        status.textContent = `Player ${current}'s turn`;
+        renderGame();
       });
-    });
 
-    document.querySelector("#restartGame")
-      .addEventListener("click", openGame);
+    document.getElementById("restartGame")
+      ?.addEventListener("click", openGame);
   }
 
-  // ==========================================
-  // QR CODE GENERATOR
-  // ==========================================
+  /* ---------- QR CODE GENERATOR ---------- */
 
   async function openQRCode() {
-    showModal("QR Code Generator", `
-      <div class="qr-app">
+    openModal("QR Code Generator", `
+      <p class="platform-note">
+        Enter text or a website address to create a QR code.
+      </p>
 
-        <p>Enter text or a website address to create a QR code.</p>
+      <input id="qrInput" type="text"
+        placeholder="Enter text or website link">
 
-        <textarea id="qrText" rows="3"
-          placeholder="Enter text or URL here..."></textarea>
+      <button type="button" id="generateQR">Generate QR code</button>
 
-        <label for="qrSize">QR code size</label>
+      <div class="qr-output" id="qrOutput"></div>
 
-        <select id="qrSize">
-          <option value="128">Small</option>
-          <option value="200" selected>Medium</option>
-          <option value="300">Large</option>
-          <option value="400">Extra Large</option>
-        </select>
+      <button type="button" id="downloadQR" hidden>
+        Download QR code
+      </button>
 
-        <button id="generateQR">Generate QR Code</button>
-
-        <div id="qrOutput"></div>
-
-        <button id="downloadQR" disabled>Download QR Code</button>
-
-      </div>
+      <p id="qrMessage" aria-live="polite"></p>
     `);
-
-    const text = document.querySelector("#qrText");
-    const size = document.querySelector("#qrSize");
-    const output = document.querySelector("#qrOutput");
-    const download = document.querySelector("#downloadQR");
 
     try {
       await loadScript(
@@ -1003,153 +957,114 @@ document.addEventListener("DOMContentLoaded", () => {
         "QRCode"
       );
     } catch {
-      output.textContent =
-        "QR Code library could not load. Check your internet connection.";
+      const message = document.getElementById("qrMessage");
+      if (message) message.textContent =
+        "QR library could not load. Check your internet connection.";
       return;
     }
 
-    document.querySelector("#generateQR").addEventListener("click", () => {
-      const value = text.value.trim();
+    const input = document.getElementById("qrInput");
+    const output = document.getElementById("qrOutput");
+    const downloadButton = document.getElementById("downloadQR");
+    const message = document.getElementById("qrMessage");
 
-      if (!value) {
-        output.textContent = "Enter text or a URL first.";
-        download.disabled = true;
-        return;
-      }
+    document.getElementById("generateQR")
+      ?.addEventListener("click", () => {
+        const text = input.value.trim();
 
-      output.innerHTML = "";
+        if (!text) {
+          message.textContent = "Enter text or a link first.";
+          return;
+        }
 
-      new QRCode(output, {
-        text: value,
-        width: Number(size.value),
-        height: Number(size.value),
-        correctLevel: QRCode.CorrectLevel.H
+        output.innerHTML = "";
+
+        new QRCode(output, {
+          text,
+          width: 220,
+          height: 220,
+          correctLevel: QRCode.CorrectLevel.H
+        });
+
+        downloadButton.hidden = false;
+        message.textContent = "QR code created.";
       });
 
-      download.disabled = false;
-    });
+    downloadButton.addEventListener("click", () => {
+      const image = output.querySelector("canvas") ||
+        output.querySelector("img");
 
-    size.addEventListener("change", () => {
-      if (text.value.trim()) {
-        document.querySelector("#generateQR").click();
-      }
-    });
-
-    download.addEventListener("click", () => {
-      const canvas = output.querySelector("canvas");
-      const image = output.querySelector("img");
-      const link = document.createElement("a");
-
-      if (canvas) {
-        link.href = canvas.toDataURL("image/png");
-      } else if (image) {
-        link.href = image.src;
-      } else {
+      if (!image) {
+        message.textContent = "Generate a QR code first.";
         return;
       }
 
+      const link = document.createElement("a");
       link.download = "my-mini-apps-qr-code.png";
+      link.href = image.tagName === "CANVAS"
+        ? image.toDataURL("image/png")
+        : image.src;
+
       link.click();
     });
   }
 
-  // ==========================================
-  // OPEN MINI APPS
-  // ==========================================
+  /* ---------- MEDIA LINK CHECKER ---------- */
 
-  function openMiniApp(app) {
-    if (app === "calculator") {
-      openCalculator();
-    } else if (app === "notes") {
-      openNotes();
-    } else if (app === "converter") {
-      openConverter();
-    } else if (app === "game") {
-      openGame();
-    } else if (app === "qrcode") {
-      openQRCode();
+  const downloadInput = document.getElementById("downloadUrl");
+  const checkDownloadButton = document.getElementById("checkDownload");
+  const downloadMessage = document.getElementById("downloadMessage");
+
+  checkDownloadButton?.addEventListener("click", () => {
+    const value = downloadInput?.value.trim();
+
+    if (!value) {
+      downloadMessage.textContent = "Please paste a media link first.";
+      return;
     }
-  }
 
-  // ==========================================
-  // DOWNLOADER LINK CHECKER
-  // ==========================================
+    let url;
 
-  const downloadButton = document.querySelector("#checkDownloadLink");
+    try {
+      url = new URL(value);
 
-  if (downloadButton) {
-    downloadButton.addEventListener("click", () => {
-      const input = document.querySelector("#downloadLink");
-      const output = document.querySelector("#downloadResult");
-
-      if (!input || !output) return;
-
-      const value = input.value.trim();
-
-      if (!value) {
-        output.textContent = "Paste a link first.";
-        return;
+      if (!["http:", "https:"].includes(url.protocol)) {
+        throw new Error("Unsupported link.");
       }
+    } catch {
+      downloadMessage.textContent =
+        "That link is not valid. Please enter a complete website link.";
+      return;
+    }
 
-      try {
-        const url = new URL(value);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
 
-        if (!["http:", "https:"].includes(url.protocol)) {
-          throw new Error("Invalid link.");
-        }
+    const platforms = {
+      "tiktok.com": "TikTok",
+      "instagram.com": "Instagram",
+      "facebook.com": "Facebook",
+      "fb.watch": "Facebook",
+      "x.com": "X",
+      "twitter.com": "X",
+      "threads.net": "Threads",
+      "youtube.com": "YouTube",
+      "youtu.be": "YouTube",
+      "pinterest.com": "Pinterest",
+      "pin.it": "Pinterest"
+    };
 
-        output.innerHTML = `
-          <p>Link received successfully.</p>
-          <p>Platform: ${escapeHTML(url.hostname)}</p>
-          <p>
-            Only download media you own or have permission to access.
-            This tool does not bypass logins, privacy settings or DRM.
-          </p>
-          <a href="${escapeHTML(url.href)}"
-             target="_blank"
-             rel="noopener noreferrer">
-             Open original link
-          </a>
-        `;
+    const platform = Object.entries(platforms).find(([domain]) =>
+      host === domain || host.endsWith(`.${domain}`)
+    )?.[1];
 
-      } catch {
-        output.textContent = "Please enter a valid web link.";
-      }
-    });
-  }
-
-  // ==========================================
-  // PLATFORM LINKS
-  // ==========================================
-
-  document.querySelectorAll("[data-platform-url]").forEach(button => {
-    button.addEventListener("click", () => {
-      const url = button.dataset.platformUrl;
-
-      try {
-        const parsed = new URL(url);
-
-        if (["https:", "http:"].includes(parsed.protocol)) {
-          window.open(
-            parsed.href,
-            "_blank",
-            "noopener,noreferrer"
-          );
-        }
-      } catch {
-        alert("This platform link is not valid.");
-      }
-    });
+    downloadMessage.textContent = platform
+      ? `${platform} link recognised. Actual media downloading is not connected yet. The downloader backend still needs to be built.`
+      : "Link recognised, but this platform is not currently supported.";
   });
 
-  // ==========================================
-  // INITIALIZE
-  // ==========================================
+  /* ---------- INITIALISE ---------- */
 
+  refreshFavoriteButtons();
   renderFavorites();
-  updateFavoriteButtons();
-
-  console.log("My Mini Apps Hub loaded successfully.");
 
 });
-      

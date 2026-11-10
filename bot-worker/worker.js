@@ -389,11 +389,10 @@ ONE HUB. MANY POSSIBILITIES.`,
         return new Response("OK");
       }
 
-      // CHECK CLOUDFLARE AI AND MEMORY
-      if (!env.AI || !env.CHAT_MEMORY) {
-        throw new Error(
-          "Cloudflare AI or CHAT_MEMORY is not configured."
-        );
+      // CHECK CONVERSATION MEMORY
+      // Cloudflare AI may be unavailable; Gemini can act as the text-chat backup.
+      if (!env.CHAT_MEMORY) {
+        throw new Error("CHAT_MEMORY KV binding is missing.");
       }
 
       // PROCESS AI CHAT
@@ -611,20 +610,12 @@ async function transcribeTelegramVoice(fileId, env) {
 
 
 // ==========================================
-// CLOUDFLARE AI + CONVERSATION MEMORY
+// CLOUDFLARE AI + GEMINI BACKUP + MEMORY
 // ==========================================
 
 async function getAIReply(userText, userId, env) {
-  if (!env.AI) {
-    throw new Error(
-      "Cloudflare Workers AI binding is missing."
-    );
-  }
-
   if (!env.CHAT_MEMORY) {
-    throw new Error(
-      "CHAT_MEMORY KV binding is missing."
-    );
+    throw new Error("CHAT_MEMORY KV binding is missing.");
   }
 
   const memoryKey = `user:${userId}`;
@@ -647,61 +638,123 @@ async function getAIReply(userText, userId, env) {
         );
       }
     } catch (error) {
-      console.error(
-        "Memory loading error:",
-        error
-      );
+      console.error("Memory loading error:", error);
     }
   }
 
-  // PREPARE AI MESSAGES
-  const messages = [
-    {
-      role: "system",
-      content: SYSTEM_PROMPT
-    },
-    ...history,
-    {
-      role: "user",
-      content: userText
-    }
-  ];
+  let answer = "";
 
-  let result;
-
+  // PRIMARY AI: CLOUDFLARE WORKERS AI
   try {
-    result = await env.AI.run(AI_MODEL, {
+    if (!env.AI) {
+      throw new Error("Cloudflare AI binding is missing.");
+    }
+
+    const messages = [
+      {
+        role: "system",
+        content: SYSTEM_PROMPT
+      },
+      ...history,
+      {
+        role: "user",
+        content: userText
+      }
+    ];
+
+    const result = await env.AI.run(AI_MODEL, {
       messages,
       max_tokens: 800
     });
-  } catch (error) {
-    console.error(
-      "Cloudflare Workers AI error:",
-      error
+
+    answer = (
+      result?.response ||
+      result?.output_text ||
+      result?.choices?.[0]?.message?.content ||
+      ""
+    ).trim();
+
+    if (!answer) {
+      throw new Error("Cloudflare AI returned an empty response.");
+    }
+
+    console.log("Reply generated using Cloudflare AI.");
+
+  } catch (cloudflareError) {
+    console.error("Cloudflare AI failed:", cloudflareError);
+
+    // BACKUP AI: GOOGLE GEMINI
+    if (!env.GEMINI_API_KEY) {
+      throw new Error(
+        "Cloudflare AI failed and Gemini API key is missing."
+      );
+    }
+
+    console.log("Trying Gemini backup...");
+
+    const contents = history.map(item => ({
+      role: item.role === "assistant" ? "model" : "user",
+      parts: [
+        {
+          text: item.content
+        }
+      ]
+    }));
+
+    contents.push({
+      role: "user",
+      parts: [
+        {
+          text: userText
+        }
+      ]
+    });
+
+    const geminiResponse = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": env.GEMINI_API_KEY
+        },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [
+              {
+                text: SYSTEM_PROMPT
+              }
+            ]
+          },
+          contents,
+          generationConfig: {
+            maxOutputTokens: 800
+          }
+        })
+      }
     );
 
-    throw new Error(
-      `Cloudflare AI request failed: ${error.message}`
-    );
-  }
+    const geminiData = await geminiResponse.json();
 
-  // EXTRACT AI RESPONSE
-  const answer = (
-    result?.response ||
-    result?.output_text ||
-    result?.choices?.[0]?.message?.content ||
-    ""
-  ).trim();
+    if (!geminiResponse.ok) {
+      console.error("Gemini API error:", geminiData);
 
-  if (!answer) {
-    console.error(
-      "Cloudflare AI returned no text:",
-      result
-    );
+      throw new Error(
+        `Gemini backup failed with status ${geminiResponse.status}.`
+      );
+    }
 
-    throw new Error(
-      "Cloudflare AI returned an empty response."
-    );
+    answer = (
+      geminiData?.candidates?.[0]?.content?.parts
+        ?.map(part => part.text || "")
+        .join("") || ""
+    ).trim();
+
+    if (!answer) {
+      throw new Error("Gemini returned an empty response.");
+    }
+
+    console.log("Reply generated using Gemini backup.");
   }
 
   // SAVE CONVERSATION

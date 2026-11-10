@@ -9,6 +9,7 @@ const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
 const MAX_HISTORY_MESSAGES = 12;
 const MEMORY_TTL = 60 * 60 * 24 * 30;
 const MAX_VOICE_SIZE = 20 * 1024 * 1024;
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
 const SYSTEM_PROMPT = `
 You are My Mini Apps Hub Assistant, a friendly, intelligent and helpful AI assistant.
@@ -94,6 +95,80 @@ export default {
 
       let text = (message.text || "").trim();
 
+      // HANDLE TELEGRAM IMAGES
+      const imageDocument =
+        message.document &&
+        typeof message.document.mime_type === "string" &&
+        message.document.mime_type.startsWith("image/");
+
+      if (
+        (message.photo && message.photo.length > 0) ||
+        imageDocument
+      ) {
+        if (!env.AI || !env.TELEGRAM_BOT_TOKEN) {
+          throw new Error("Cloudflare AI or Telegram token is missing.");
+        }
+
+        let fileId;
+        let fileSize;
+        let mimeType;
+
+        if (message.photo && message.photo.length > 0) {
+          const photo = message.photo[message.photo.length - 1];
+
+          fileId = photo.file_id;
+          fileSize = photo.file_size;
+          mimeType = "image/jpeg";
+        } else {
+          fileId = message.document.file_id;
+          fileSize = message.document.file_size;
+          mimeType = message.document.mime_type;
+        }
+
+        const allowedImageTypes = [
+          "image/jpeg",
+          "image/png",
+          "image/webp"
+        ];
+
+        if (!allowedImageTypes.includes(mimeType)) {
+          await sendMessage(
+            chatId,
+            "Please send a JPEG, PNG or WebP image.",
+            env
+          );
+
+          return new Response("OK");
+        }
+
+        if (fileSize && fileSize > MAX_IMAGE_SIZE) {
+          await sendMessage(
+            chatId,
+            "That image is too large. Please send an image smaller than 10 MB.",
+            env
+          );
+
+          return new Response("OK");
+        }
+
+        await sendMessage(
+          chatId,
+          "🖼️ Looking at your picture...",
+          env
+        );
+
+        const answer = await analyzeTelegramImage(
+          fileId,
+          mimeType,
+          message.caption || "Describe this image and explain what you can see.",
+          env
+        );
+
+        await sendLongMessage(chatId, answer, env);
+
+        return new Response("OK");
+      }
+
       // HANDLE TELEGRAM VOICE NOTES
       if (message.voice) {
         if (!env.AI) {
@@ -149,7 +224,7 @@ export default {
       if (!text) {
         await sendMessage(
           chatId,
-          "Send me a text message or a Telegram voice note and let's chat!",
+          "Send me a text message, an image or a Telegram voice note and let's chat!",
           env
         );
 
@@ -161,66 +236,6 @@ export default {
         .split("@")[0]
         .toLowerCase();
 
-      // TEMPORARY VISION LICENCE ACCEPTANCE
-      if (command === "/acceptvision") {
-        if (!env.AI) {
-          throw new Error("Workers AI binding is missing.");
-        }
-
-        await sendMessage(
-          chatId,
-          "⏳ Checking the vision model licence...",
-          env
-        );
-
-        try {
-          const result = await env.AI.run(VISION_MODEL, {
-            prompt: "agree"
-          });
-
-          console.log(
-            "Vision model acceptance response:",
-            result
-          );
-
-          await sendMessage(
-            chatId,
-            "✅ The vision model request completed. We can now test image understanding.",
-            env
-          );
-        } catch (error) {
-          const errorMessage = String(
-            error.message || error
-          );
-
-          console.error(
-            "Vision model response:",
-            errorMessage
-          );
-
-          if (
-            errorMessage.includes("5016") &&
-            errorMessage.toLowerCase().includes(
-              "thank you for agreeing"
-            )
-          ) {
-            await sendMessage(
-              chatId,
-              "✅ Cloudflare has confirmed that you accepted the vision model terms. The model is now available.",
-              env
-            );
-          } else {
-            await sendMessage(
-              chatId,
-              `❌ Vision model request failed: ${errorMessage}`,
-              env
-            );
-          }
-        }
-
-        return new Response("OK");
-      }
-
       // START
       if (command === "/start") {
         await sendMessage(
@@ -229,7 +244,7 @@ export default {
 
 I'm your AI assistant.
 
-You can chat with me naturally, ask questions, get help with writing, explore useful tools and send me voice notes.
+You can chat with me naturally, ask questions, get help with writing, explore useful tools, send voice notes and share pictures for me to understand.
 
 I understand English and Nigerian Pidgin.
 
@@ -256,7 +271,10 @@ Use /help to see my commands.`,
 /about — About this bot
 /forget — Clear your saved conversation
 
-You can send normal text messages or Telegram voice notes.
+You can send:
+• Normal text messages
+• Telegram voice notes
+• JPEG, PNG and WebP images
 
 You can chat in English, Nigerian English or Pidgin. 🤖`,
           env
@@ -314,6 +332,7 @@ You're using My Mini Apps Hub.`,
 
 AI chat: Enabled
 Voice note transcription: Enabled
+Image understanding: Enabled
 Conversation memory: Enabled
 Memory expiry: 30 days
 Language support: English and Nigerian Pidgin
@@ -415,6 +434,100 @@ ONE HUB. MANY POSSIBILITIES.`,
     }
   }
 };
+
+
+// ==========================================
+// TELEGRAM IMAGE UNDERSTANDING
+// ==========================================
+
+async function analyzeTelegramImage(fileId, mimeType, prompt, env) {
+  if (!env.TELEGRAM_BOT_TOKEN || !env.AI) {
+    throw new Error("Telegram token or Cloudflare AI is missing.");
+  }
+
+  // GET IMAGE FILE INFORMATION
+  const infoResponse = await fetch(
+    `${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/getFile?file_id=${encodeURIComponent(fileId)}`
+  );
+
+  if (!infoResponse.ok) {
+    throw new Error("Could not get image information from Telegram.");
+  }
+
+  const info = await infoResponse.json();
+
+  if (!info.ok || !info.result?.file_path) {
+    throw new Error("Telegram did not return a valid image file.");
+  }
+
+  // DOWNLOAD IMAGE
+  const fileUrl =
+    `${TELEGRAM_API}/file/bot${env.TELEGRAM_BOT_TOKEN}/${info.result.file_path}`;
+
+  const imageResponse = await fetch(fileUrl);
+
+  if (!imageResponse.ok) {
+    throw new Error("Could not download the Telegram image.");
+  }
+
+  const imageBuffer = await imageResponse.arrayBuffer();
+
+  if (imageBuffer.byteLength > MAX_IMAGE_SIZE) {
+    throw new Error("Image exceeds the 10 MB processing limit.");
+  }
+
+  // CONVERT IMAGE TO BASE64 DATA URL
+  const bytes = new Uint8Array(imageBuffer);
+  let binary = "";
+
+  for (let i = 0; i < bytes.length; i += 8192) {
+    binary += String.fromCharCode(
+      ...bytes.subarray(i, Math.min(i + 8192, bytes.length))
+    );
+  }
+
+  const imageData =
+    `data:${mimeType};base64,${btoa(binary)}`;
+
+  // SEND IMAGE TO CLOUDFLARE VISION MODEL
+  const result = await env.AI.run(VISION_MODEL, {
+    messages: [
+      {
+        role: "system",
+        content: SYSTEM_PROMPT
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: prompt
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: imageData
+            }
+          }
+        ]
+      }
+    ],
+    max_tokens: 800
+  });
+
+  const answer = (
+    result?.response ||
+    result?.output_text ||
+    result?.choices?.[0]?.message?.content ||
+    ""
+  ).trim();
+
+  if (!answer) {
+    throw new Error("The vision model returned an empty response.");
+  }
+
+  return answer;
+}
 
 
 // ==========================================

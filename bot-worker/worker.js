@@ -161,57 +161,63 @@ export default {
         .split("@")[0]
         .toLowerCase();
 
-      // TEMPORARY ONE-TIME VISION LICENCE ACCEPTANCE
-      // Remove this command after successful acceptance.
+      // TEMPORARY VISION LICENCE ACCEPTANCE
       if (command === "/acceptvision") {
-  if (!env.AI) {
-    throw new Error("Workers AI binding is missing.");
-  }
+        if (!env.AI) {
+          throw new Error("Workers AI binding is missing.");
+        }
 
-  await sendMessage(
-    chatId,
-    "⏳ Checking the vision model licence...",
-    env
-  );
+        await sendMessage(
+          chatId,
+          "⏳ Checking the vision model licence...",
+          env
+        );
 
-  try {
-    const result = await env.AI.run(VISION_MODEL, {
-      prompt: "agree"
-    });
+        try {
+          const result = await env.AI.run(VISION_MODEL, {
+            prompt: "agree"
+          });
 
-    console.log("Vision model acceptance response:", result);
+          console.log(
+            "Vision model acceptance response:",
+            result
+          );
 
-    await sendMessage(
-      chatId,
-      "✅ Vision model licence accepted successfully!",
-      env
-    );
+          await sendMessage(
+            chatId,
+            "✅ The vision model request completed. We can now test image understanding.",
+            env
+          );
+        } catch (error) {
+          const errorMessage = String(
+            error.message || error
+          );
 
-  } catch (error) {
-    const errorMessage = String(error.message || error);
+          console.error(
+            "Vision model response:",
+            errorMessage
+          );
 
-    console.error("Vision model response:", errorMessage);
+          if (
+            errorMessage.includes("5016") &&
+            errorMessage.toLowerCase().includes(
+              "thank you for agreeing"
+            )
+          ) {
+            await sendMessage(
+              chatId,
+              "✅ Cloudflare has confirmed that you accepted the vision model terms. The model is now available.",
+              env
+            );
+          } else {
+            await sendMessage(
+              chatId,
+              `❌ Vision model request failed: ${errorMessage}`,
+              env
+            );
+          }
+        }
 
-    if (
-      errorMessage.includes("5016") &&
-      errorMessage.toLowerCase().includes("thank you for agreeing")
-    ) {
-      await sendMessage(
-        chatId,
-        "✅ Cloudflare has confirmed that you accepted the vision model terms. The model is now available.",
-        env
-      );
-    } else {
-      await sendMessage(
-        chatId,
-        `❌ Vision model request failed: ${errorMessage}`,
-        env
-      );
-    }
-  }
-
-  return new Response("OK");
-}
         return new Response("OK");
       }
 

@@ -164,46 +164,54 @@ export default {
       // TEMPORARY ONE-TIME VISION LICENCE ACCEPTANCE
       // Remove this command after successful acceptance.
       if (command === "/acceptvision") {
-        if (!env.AI) {
-          throw new Error("Workers AI binding is missing.");
-        }
+  if (!env.AI) {
+    throw new Error("Workers AI binding is missing.");
+  }
 
-        await sendMessage(
-          chatId,
-          "⏳ Sending the vision model acceptance request...",
-          env
-        );
+  await sendMessage(
+    chatId,
+    "⏳ Checking the vision model licence...",
+    env
+  );
 
-        try {
-          const result = await env.AI.run(VISION_MODEL, {
-            prompt: "agree"
-          });
+  try {
+    const result = await env.AI.run(VISION_MODEL, {
+      prompt: "agree"
+    });
 
-          console.log(
-            "Vision model acceptance response:",
-            result
-          );
+    console.log("Vision model acceptance response:", result);
 
-          await sendMessage(
-            chatId,
-            "✅ The vision model request completed. We can now check whether image understanding is available.",
-            env
-          );
-        } catch (error) {
-          console.error(
-            "Vision model acceptance error:",
-            error
-          );
+    await sendMessage(
+      chatId,
+      "✅ Vision model licence accepted successfully!",
+      env
+    );
 
-          await sendMessage(
-            chatId,
-            `❌ The vision model request failed: ${error.message}
+  } catch (error) {
+    const errorMessage = String(error.message || error);
 
-Please check the Cloudflare Worker logs before trying again.`,
-            env
-          );
-        }
+    console.error("Vision model response:", errorMessage);
 
+    if (
+      errorMessage.includes("5016") &&
+      errorMessage.toLowerCase().includes("thank you for agreeing")
+    ) {
+      await sendMessage(
+        chatId,
+        "✅ Cloudflare has confirmed that you accepted the vision model terms. The model is now available.",
+        env
+      );
+    } else {
+      await sendMessage(
+        chatId,
+        `❌ Vision model request failed: ${errorMessage}`,
+        env
+      );
+    }
+  }
+
+  return new Response("OK");
+}
         return new Response("OK");
       }
 

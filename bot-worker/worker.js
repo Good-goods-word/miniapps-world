@@ -3,6 +3,7 @@ const TELEGRAM_API = "https://api.telegram.org";
 const WEBSITE_URL = "https://miniapps-world.lildavid5h.workers.dev/";
 
 const AI_MODEL = "@cf/zai-org/glm-4.7-flash";
+const TEST_AI_MODEL = "@cf/meta/llama-3.2-3b-instruct";
 const WHISPER_MODEL = "@cf/openai/whisper-large-v3-turbo";
 const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
 
@@ -718,6 +719,7 @@ async function getAIReply(userText, userId, env) {
     console.log("TIMING web_search_ms: skipped");
   }
 
+
   // PRIMARY AI: CLOUDFLARE WORKERS AI
   try {
     if (!env.AI) {
@@ -738,27 +740,83 @@ async function getAIReply(userText, userId, env) {
       }
     ];
 
-    const cloudflareStart = Date.now();
+    // HELPER: RUN A CLOUDFLARE MODEL
+    async function runCloudflareModel(modelName, timingLabel) {
+      const modelStart = Date.now();
 
-    const result = await env.AI.run(AI_MODEL, {
-      messages,
-      max_tokens: 800
-    });
+      try {
+        const result = await env.AI.run(modelName, {
+          messages,
+          max_tokens: 800
+        });
 
-    console.log("TIMING cloudflare_ai_ms:", Date.now() - cloudflareStart);
+        const modelAnswer = (
+          result?.response ||
+          result?.output_text ||
+          result?.choices?.[0]?.message?.content ||
+          ""
+        ).trim();
 
-    answer = (
-      result?.response ||
-      result?.output_text ||
-      result?.choices?.[0]?.message?.content ||
-      ""
-    ).trim();
+        console.log(
+          `TIMING ${timingLabel}_ms:`,
+          Date.now() - modelStart
+        );
 
-    if (!answer) {
-      throw new Error("Cloudflare AI returned an empty response.");
+        if (!modelAnswer) {
+          throw new Error(`${modelName} returned an empty response.`);
+        }
+
+        return modelAnswer;
+
+      } catch (error) {
+        console.log(
+          `TIMING ${timingLabel}_ms:`,
+          Date.now() - modelStart
+        );
+
+        throw error;
+      }
     }
 
-    console.log("Reply generated using Cloudflare AI.");
+    // FIRST TRY: LLAMA TEST MODEL
+    try {
+      console.log("Trying Llama test model...");
+
+      answer = await runCloudflareModel(
+        TEST_AI_MODEL,
+        "llama_test"
+      );
+
+      console.log("Reply generated using Llama test model.");
+
+    } catch (llamaError) {
+      console.error("LLAMA TEST MODEL FAILED:", {
+        name: llamaError?.name,
+        message: llamaError?.message
+      });
+
+      // SECOND TRY: ORIGINAL GLM MODEL
+      try {
+        console.log("Trying original GLM fallback...");
+
+        answer = await runCloudflareModel(
+          AI_MODEL,
+          "glm_fallback"
+        );
+
+        console.log("Reply generated using original GLM fallback.");
+
+      } catch (glmError) {
+        console.error("ORIGINAL GLM MODEL FAILED:", {
+          name: glmError?.name,
+          message: glmError?.message
+        });
+
+        throw new Error(
+          "Both Cloudflare AI models failed."
+        );
+      }
+    }
 
   } catch (cloudflareError) {
     console.error("CLOUDFLARE AI ERROR DETAILS:", {
@@ -769,7 +827,7 @@ async function getAIReply(userText, userId, env) {
       code: cloudflareError?.code
     });
 
-    // BACKUP AI: GOOGLE GEMINI
+    // FINAL BACKUP AI: GOOGLE GEMINI
     if (!env.GEMINI_API_KEY) {
       throw new Error(
         "Cloudflare AI failed and Gemini API key is missing."
@@ -848,6 +906,7 @@ async function getAIReply(userText, userId, env) {
 
     console.log("Reply generated using Gemini backup.");
   }
+
 
   // SAVE CONVERSATION
   const updatedHistory = [

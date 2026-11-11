@@ -1,4 +1,3 @@
-
 const TELEGRAM_API = "https://api.telegram.org";
 const WEBSITE_URL = "https://miniapps-world.lildavid5h.workers.dev/";
 
@@ -610,6 +609,50 @@ async function transcribeTelegramVoice(fileId, env) {
 
 
 // ==========================================
+// TAVILY WEB SEARCH
+// ==========================================
+
+async function searchWeb(query, env) {
+  if (!env.TAVILY_API_KEY) {
+    throw new Error("Tavily API key is missing.");
+  }
+
+  const response = await fetch(
+    "https://api.tavily.com/search",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        api_key: env.TAVILY_API_KEY,
+        query,
+        search_depth: "basic",
+        topic: "general",
+        max_results: 5,
+        include_answer: false,
+        include_raw_content: false
+      })
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error("Tavily search error:", data);
+    throw new Error("Web search failed.");
+  }
+
+  return (data.results || []).map((item, index) => ({
+    number: index + 1,
+    title: item.title,
+    url: item.url,
+    content: item.content
+  }));
+}
+
+
+// ==========================================
 // CLOUDFLARE AI + GEMINI BACKUP + MEMORY
 // ==========================================
 
@@ -644,6 +687,27 @@ async function getAIReply(userText, userId, env) {
 
   let answer = "";
 
+  // OPTIONAL WEB RESEARCH
+  let researchContext = "";
+
+  const needsWebSearch =
+    /\b(search|look up|research|latest|current|today|recent|news|price|who is|what happened|2026)\b/i.test(userText);
+
+  if (needsWebSearch && env.TAVILY_API_KEY) {
+    try {
+      const searchResults = await searchWeb(userText, env);
+
+      researchContext = searchResults
+        .map(item =>
+          `[${item.number}] ${item.title}\n${item.content}\nSource: ${item.url}`
+        )
+        .join("\n\n");
+
+    } catch (searchError) {
+      console.error("Web search failed:", searchError);
+    }
+  }
+
   // PRIMARY AI: CLOUDFLARE WORKERS AI
   try {
     if (!env.AI) {
@@ -658,7 +722,9 @@ async function getAIReply(userText, userId, env) {
       ...history,
       {
         role: "user",
-        content: userText
+        content: researchContext
+          ? `${userText}\n\nWEB RESEARCH RESULTS:\n${researchContext}\n\nUse these sources to answer accurately. Include the source URLs in your response.`
+          : userText
       }
     ];
 
@@ -705,7 +771,9 @@ async function getAIReply(userText, userId, env) {
       role: "user",
       parts: [
         {
-          text: userText
+          text: researchContext
+            ? `${userText}\n\nWEB RESEARCH RESULTS:\n${researchContext}\n\nUse these sources to answer accurately. Include the source URLs in your response.`
+            : userText
         }
       ]
     });

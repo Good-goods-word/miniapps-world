@@ -745,7 +745,13 @@ async function getAIReply(userText, userId, env) {
     console.log("Reply generated using Cloudflare AI.");
 
   } catch (cloudflareError) {
-    console.error("Cloudflare AI failed:", cloudflareError);
+   console.error("CLOUDFLARE AI ERROR DETAILS:", {
+  name: cloudflareError?.name,
+  message: cloudflareError?.message,
+  stack: cloudflareError?.stack,
+  status: cloudflareError?.status,
+  code: cloudflareError?.code
+});
 
     // BACKUP AI: GOOGLE GEMINI
     if (!env.GEMINI_API_KEY) {

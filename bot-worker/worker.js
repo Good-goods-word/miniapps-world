@@ -655,6 +655,8 @@ async function searchWeb(query, env) {
 // ==========================================
 
 async function getAIReply(userText, userId, env) {
+  const totalStart = Date.now();
+
   if (!env.CHAT_MEMORY) {
     throw new Error("CHAT_MEMORY KV binding is missing.");
   }
@@ -664,6 +666,7 @@ async function getAIReply(userText, userId, env) {
   // LOAD SAVED CONVERSATION
   let history = [];
 
+  const memoryStart = Date.now();
   const saved = await env.CHAT_MEMORY.get(memoryKey);
 
   if (saved) {
@@ -683,6 +686,8 @@ async function getAIReply(userText, userId, env) {
     }
   }
 
+  console.log("TIMING memory_load_ms:", Date.now() - memoryStart);
+
   let answer = "";
 
   // OPTIONAL WEB RESEARCH
@@ -692,6 +697,8 @@ async function getAIReply(userText, userId, env) {
     /\b(search|look up|research|latest|current|today|recent|news|price|who is|what happened|2026)\b/i.test(userText);
 
   if (needsWebSearch && env.TAVILY_API_KEY) {
+    const searchStart = Date.now();
+
     try {
       const searchResults = await searchWeb(userText, env);
 
@@ -701,9 +708,14 @@ async function getAIReply(userText, userId, env) {
         )
         .join("\n\n");
 
+      console.log("TIMING web_search_ms:", Date.now() - searchStart);
+
     } catch (searchError) {
       console.error("Web search failed:", searchError);
+      console.log("TIMING web_search_ms:", Date.now() - searchStart);
     }
+  } else {
+    console.log("TIMING web_search_ms: skipped");
   }
 
   // PRIMARY AI: CLOUDFLARE WORKERS AI
@@ -726,10 +738,14 @@ async function getAIReply(userText, userId, env) {
       }
     ];
 
+    const cloudflareStart = Date.now();
+
     const result = await env.AI.run(AI_MODEL, {
       messages,
       max_tokens: 800
     });
+
+    console.log("TIMING cloudflare_ai_ms:", Date.now() - cloudflareStart);
 
     answer = (
       result?.response ||
@@ -745,13 +761,13 @@ async function getAIReply(userText, userId, env) {
     console.log("Reply generated using Cloudflare AI.");
 
   } catch (cloudflareError) {
-   console.error("CLOUDFLARE AI ERROR DETAILS:", {
-  name: cloudflareError?.name,
-  message: cloudflareError?.message,
-  stack: cloudflareError?.stack,
-  status: cloudflareError?.status,
-  code: cloudflareError?.code
-});
+    console.error("CLOUDFLARE AI ERROR DETAILS:", {
+      name: cloudflareError?.name,
+      message: cloudflareError?.message,
+      stack: cloudflareError?.stack,
+      status: cloudflareError?.status,
+      code: cloudflareError?.code
+    });
 
     // BACKUP AI: GOOGLE GEMINI
     if (!env.GEMINI_API_KEY) {
@@ -782,8 +798,10 @@ async function getAIReply(userText, userId, env) {
       ]
     });
 
+    const geminiStart = Date.now();
+
     const geminiResponse = await fetch(
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
       {
         method: "POST",
         headers: {
@@ -807,6 +825,8 @@ async function getAIReply(userText, userId, env) {
     );
 
     const geminiData = await geminiResponse.json();
+
+    console.log("TIMING gemini_ms:", Date.now() - geminiStart);
 
     if (!geminiResponse.ok) {
       console.error("Gemini API error:", geminiData);
@@ -842,6 +862,8 @@ async function getAIReply(userText, userId, env) {
     }
   ].slice(-MAX_HISTORY_MESSAGES);
 
+  const memorySaveStart = Date.now();
+
   await env.CHAT_MEMORY.put(
     memoryKey,
     JSON.stringify(updatedHistory),
@@ -850,8 +872,13 @@ async function getAIReply(userText, userId, env) {
     }
   );
 
+  console.log("TIMING memory_save_ms:", Date.now() - memorySaveStart);
+  console.log("TIMING total_ai_processing_ms:", Date.now() - totalStart);
+
   return answer;
 }
+
+
 
 
 // ==========================================

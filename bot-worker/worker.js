@@ -1,3 +1,4 @@
+
 const TELEGRAM_API = "https://api.telegram.org";
 const WEBSITE_URL = "https://miniapps-world.lildavid5h.workers.dev/";
 
@@ -389,7 +390,6 @@ ONE HUB. MANY POSSIBILITIES.`,
       }
 
       // CHECK CONVERSATION MEMORY
-      // Cloudflare AI may be unavailable; Gemini can act as the text-chat backup.
       if (!env.CHAT_MEMORY) {
         throw new Error("CHAT_MEMORY KV binding is missing.");
       }
@@ -416,7 +416,12 @@ ONE HUB. MANY POSSIBILITIES.`,
       return new Response("OK");
 
     } catch (error) {
-      console.error("Bot error:", error);
+      // IMPROVED ERROR LOGGING
+      console.error("BOT ERROR DETAILS:", {
+        name: error?.name,
+        message: error?.message,
+        stack: error?.stack
+      });
 
       const chatId = update?.message?.chat?.id;
 
@@ -443,7 +448,6 @@ async function analyzeTelegramImage(fileId, mimeType, prompt, env) {
     throw new Error("Telegram token or Cloudflare AI is missing.");
   }
 
-  // GET IMAGE FILE INFORMATION
   const infoResponse = await fetch(
     `${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/getFile?file_id=${encodeURIComponent(fileId)}`
   );
@@ -458,7 +462,6 @@ async function analyzeTelegramImage(fileId, mimeType, prompt, env) {
     throw new Error("Telegram did not return a valid image file.");
   }
 
-  // DOWNLOAD IMAGE
   const fileUrl =
     `${TELEGRAM_API}/file/bot${env.TELEGRAM_BOT_TOKEN}/${info.result.file_path}`;
 
@@ -474,7 +477,6 @@ async function analyzeTelegramImage(fileId, mimeType, prompt, env) {
     throw new Error("Image exceeds the 10 MB processing limit.");
   }
 
-  // CONVERT IMAGE TO BASE64 DATA URL
   const bytes = new Uint8Array(imageBuffer);
   let binary = "";
 
@@ -487,7 +489,6 @@ async function analyzeTelegramImage(fileId, mimeType, prompt, env) {
   const imageData =
     `data:${mimeType};base64,${btoa(binary)}`;
 
-  // SEND IMAGE TO CLOUDFLARE VISION MODEL
   const result = await env.AI.run(VISION_MODEL, {
     messages: [
       {
@@ -551,7 +552,6 @@ async function transcribeTelegramVoice(fileId, env) {
     );
   }
 
-  // DOWNLOAD VOICE NOTE
   const fileUrl =
     `${TELEGRAM_API}/file/bot${env.TELEGRAM_BOT_TOKEN}/${info.result.file_path}`;
 
@@ -571,7 +571,6 @@ async function transcribeTelegramVoice(fileId, env) {
     );
   }
 
-  // CONVERT AUDIO TO BASE64
   const bytes = new Uint8Array(audioBuffer);
   let binary = "";
 
@@ -586,7 +585,6 @@ async function transcribeTelegramVoice(fileId, env) {
 
   const audioBase64 = btoa(binary);
 
-  // TRANSCRIBE USING WHISPER
   const result = await env.AI.run(WHISPER_MODEL, {
     audio: audioBase64,
     task: "transcribe"

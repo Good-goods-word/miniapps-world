@@ -819,8 +819,21 @@ Content: ${item.content.slice(0, 1800)}`;
 
 function extractCloudflareAnswer(result) {
   if (!result) {
+    console.log("AI RESULT: Empty result");
     return "";
   }
+
+  console.log("AI RESULT DIAGNOSTICS:", {
+    resultType: typeof result,
+    keys: typeof result === "object"
+      ? Object.keys(result)
+      : [],
+    responseType: typeof result.response,
+    responseLength: typeof result.response === "string"
+      ? result.response.length
+      : null,
+    resultTypeNested: typeof result.result
+  });
 
   if (typeof result === "string") {
     return result.trim();
@@ -853,6 +866,8 @@ function extractCloudflareAnswer(result) {
 
   return "";
 }
+
+
 
 
 // ==========================================

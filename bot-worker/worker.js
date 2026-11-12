@@ -937,6 +937,8 @@ Be transparent that current information could not be verified live. Do not prete
 // ==========================================
 
 async function getAIReply(userMessage, userId, env) {
+  const startedAt = Date.now();
+
   if (!env.AI) {
     throw new Error("Cloudflare Workers AI binding is missing.");
   }
@@ -950,8 +952,10 @@ async function getAIReply(userMessage, userId, env) {
   let researchContext = "";
   let researchStatus = "";
 
-  // Run web research when the question needs current information.
+  // Run web research only when necessary.
   if (needsWebResearch(userMessage)) {
+    const researchStarted = Date.now();
+
     try {
       const researchResults = await searchWeb(userMessage, env);
       researchContext = formatResearchContext(researchResults);
@@ -966,6 +970,12 @@ async function getAIReply(userMessage, userId, env) {
       researchStatus =
         "Live web research failed or is unavailable.";
     }
+
+    console.log(
+      "WEB RESEARCH TIME:",
+      Date.now() - researchStarted,
+      "ms"
+    );
   }
 
   const currentMessage = buildAIUserMessage(
@@ -983,26 +993,42 @@ async function getAIReply(userMessage, userId, env) {
   let answer = "";
 
   // FIRST ATTEMPT: PRIMARY MODEL
+  let modelStarted = Date.now();
+
   try {
     const result = await env.AI.run(PRIMARY_AI_MODEL, {
       messages,
-      max_tokens: 1400
+      max_tokens: 700
     });
 
     answer = extractCloudflareAnswer(result);
+
+    console.log(
+      "PRIMARY MODEL TIME:",
+      Date.now() - modelStarted,
+      "ms"
+    );
   } catch (error) {
     console.error("PRIMARY AI MODEL ERROR:", error?.message);
   }
 
   // SECOND ATTEMPT: FALLBACK MODEL
   if (!answer) {
+    modelStarted = Date.now();
+
     try {
       const result = await env.AI.run(FALLBACK_AI_MODEL, {
         messages,
-        max_tokens: 1400
+        max_tokens: 700
       });
 
       answer = extractCloudflareAnswer(result);
+
+      console.log(
+        "FALLBACK MODEL TIME:",
+        Date.now() - modelStarted,
+        "ms"
+      );
     } catch (error) {
       console.error("FALLBACK AI MODEL ERROR:", error?.message);
     }
@@ -1010,6 +1036,8 @@ async function getAIReply(userMessage, userId, env) {
 
   // THIRD ATTEMPT: GEMINI
   if (!answer) {
+    modelStarted = Date.now();
+
     try {
       if (!env.GEMINI_API_KEY) {
         throw new Error("GEMINI_API_KEY is not configured.");
@@ -1034,7 +1062,7 @@ async function getAIReply(userMessage, userId, env) {
             contents,
             generationConfig: {
               temperature: 0.7,
-              maxOutputTokens: 1400
+              maxOutputTokens: 700
             }
           })
         }
@@ -1054,6 +1082,12 @@ async function getAIReply(userMessage, userId, env) {
         ?.map(part => part.text || "")
         .join("\n")
         .trim() || "";
+
+      console.log(
+        "GEMINI MODEL TIME:",
+        Date.now() - modelStarted,
+        "ms"
+      );
 
     } catch (error) {
       console.error("GEMINI AI ERROR:", error?.message);
@@ -1076,8 +1110,16 @@ async function getAIReply(userMessage, userId, env) {
     env
   );
 
+  console.log(
+    "TOTAL AI RESPONSE TIME:",
+    Date.now() - startedAt,
+    "ms"
+  );
+
   return answer;
 }
+
+
 // ==========================================
 // TELEGRAM SEND MESSAGE
 // ==========================================

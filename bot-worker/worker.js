@@ -651,9 +651,12 @@ async function saveConversationHistory(userId, history, env) {
 // ==========================================
 
 function needsWebResearch(text) {
-  const value = String(text || "").toLowerCase();
+  const value = String(text || "").toLowerCase().trim();
+
+  if (!value) return false;
 
   const researchTerms = [
+    // Current and recent information
     "latest",
     "today",
     "currently",
@@ -666,12 +669,19 @@ function needsWebResearch(text) {
     "news",
     "update",
     "updates",
+
+    // Prices and availability
     "price",
     "prices",
     "cost",
     "exchange rate",
     "weather",
     "forecast",
+    "availability",
+    "available now",
+    "open now",
+
+    // Sports
     "score",
     "results",
     "standing",
@@ -681,22 +691,62 @@ function needsWebResearch(text) {
     "schedule",
     "fixture",
     "fixtures",
-    "release date",
-    "availability",
-    "available now",
-    "open now",
+
+    // People and public figures
     "who is",
+    "who are",
+    "who owns",
+    "who founded",
+    "who created",
+    "who invented",
+    "founder",
+    "ceo",
+    "president",
+    "public figure",
+    "biography",
+    "profile of",
+    "about ",
     "what happened",
     "is it true",
     "verify",
     "verification",
     "fact check",
     "fact-check",
-    "research",
-    "source",
-    "sources",
-    "website",
+
+    // Companies and businesses
+    "company",
+    "companies",
+    "business",
+    "businesses",
+    "organization",
+    "organisation",
+    "brand",
+    "brands",
     "official website",
+
+    // Products and technology
+    "product",
+    "products",
+    "service",
+    "services",
+    "software",
+    "technology",
+    "device",
+    "devices",
+    "release date",
+    "released",
+    "launched",
+
+    // Apps and platforms
+    "app",
+    "apps",
+    "application",
+    "applications",
+    "platform",
+    "platforms",
+    "website",
+
+    // Social media
     "account",
     "profile",
     "username",
@@ -708,17 +758,29 @@ function needsWebResearch(text) {
     "linkedin",
     "youtube",
     "social media",
-    "public figure",
-    "company",
-    "business",
-    "app",
-    "platform",
-    "product",
-    "service"
+
+    // Explicit research requests
+    "research",
+    "source",
+    "sources",
+    "find out",
+    "look up",
+    "search for",
+    "tell me about",
+    "information about",
+    "more about",
+    "what do you know about",
+    "compare",
+    "comparison",
+    "official announcement",
+    "original article",
+    "original source"
   ];
 
   return researchTerms.some(term => value.includes(term));
 }
+
+
 
 
 // ==========================================

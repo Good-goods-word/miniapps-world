@@ -6,7 +6,7 @@ const PRIMARY_AI_MODEL = "@cf/google/gemma-4-26b-a4b-it";
 const FALLBACK_AI_MODEL = "@cf/zai-org/glm-4.7-flash";
 const WHISPER_MODEL = "@cf/openai/whisper-large-v3-turbo";
 const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
-const GEMINI_MODEL = "gemini-3.5-flash-lite";
+const GEMINI_MODEL = "gemini-2.5-flash";
 
 // LIMITS
 const MAX_HISTORY_MESSAGES = 12;
@@ -15,6 +15,7 @@ const MAX_VOICE_SIZE = 20 * 1024 * 1024;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 const MAX_WEB_RESULTS = 6;
 const TELEGRAM_MESSAGE_LIMIT = 3900;
+const LINK_FETCH_TIMEOUT = 8000;
 
 // MAIN ASSISTANT INSTRUCTIONS
 const SYSTEM_PROMPT = `
@@ -79,8 +80,13 @@ IMAGE AND SCREENSHOT UNDERSTANDING:
 - For social-media profile screenshots, explain visible details where readable, including displayed name, username/handle, bio, follower and following counts, post counts, verification indicators, visible links and apparent account type.
 - Explain what the visible information suggests without claiming more than the image establishes.
 - A screenshot alone cannot prove that an account is genuine, safe, officially verified or currently active.
-- If live research results are supplied for a public account, compare them with the screenshot and clearly distinguish screenshot observations from current online findings.
 - Do not identify a private person in an image.
+- When the user sends a screenshot, answer from what you can see. Do not talk about "research results" or "provided sources" unless they were actually supplied in this turn.
+
+LINKS AND PAGES:
+- When page metadata for a link is supplied, you have read the page preview only, not the full page.
+- Say clearly that you read the preview when that is all you have.
+- If the metadata does not establish what the user asked, say so plainly and suggest sending a screenshot instead.
 
 TECHNOLOGY AND TECHNICAL ASSISTANCE:
 - Explain technical concepts accurately in language appropriate to the user's experience.
@@ -175,6 +181,11 @@ export default {
         return new Response("OK");
       }
 
+      // Ignore messages sent by bots (including this bot itself).
+      if (message.from.is_bot) {
+        return new Response("OK");
+      }
+
       const chatId = message.chat.id;
       const userId = message.from.id;
       let text = (message.text || "").trim();
@@ -185,6 +196,7 @@ export default {
         message.document.mime_type.startsWith("image/")
       );
 
+      // ---------- IMAGE PATH ----------
       if ((message.photo && message.photo.length > 0) || imageDocument) {
         if (!env.AI || !env.TELEGRAM_BOT_TOKEN) {
           throw new Error("Cloudflare AI or Telegram token is missing for image analysis.");
@@ -198,7 +210,7 @@ export default {
           const photo = message.photo[message.photo.length - 1];
           fileId = photo.file_id;
           fileSize = photo.file_size;
-                    mimeType = "image/jpeg";
+          mimeType = "image/jpeg";
         } else {
           fileId = message.document.file_id;
           fileSize = message.document.file_size;
@@ -215,7 +227,7 @@ export default {
           return new Response("OK");
         }
 
-        await sendMessage(chatId, "🖼️ Looking at your picture...", env);
+        await sendChatAction(chatId, "typing", env);
 
         const caption = (
           message.caption ||
@@ -227,6 +239,7 @@ export default {
         return new Response("OK");
       }
 
+      // ---------- VOICE PATH ----------
       if (message.voice) {
         if (!env.AI || !env.TELEGRAM_BOT_TOKEN) {
           throw new Error("Cloudflare AI or Telegram token is missing for voice transcription.");
@@ -237,7 +250,7 @@ export default {
           return new Response("OK");
         }
 
-        await sendMessage(chatId, "🎧 Listening to your voice note...", env);
+        await sendChatAction(chatId, "typing", env);
 
         text = await transcribeTelegramVoice(message.voice.file_id, env);
 
@@ -254,6 +267,7 @@ export default {
         return new Response("OK");
       }
 
+      // ---------- COMMANDS ----------
       const command = text.split(/\s+/)[0].split("@")[0].toLowerCase();
 
       if (command === "/start") {
@@ -261,7 +275,7 @@ export default {
 
 I'm your AI assistant.
 
-You can chat with me naturally, ask questions, get help with writing, explore useful tools, send voice notes and share pictures for me to understand.
+You can chat with me naturally, ask questions, get help with writing, explore useful tools, send voice notes, share pictures for me to understand, and send links for me to look at.
 
 I understand English and Nigerian Pidgin.
 
@@ -286,6 +300,9 @@ You can send:
 • Normal text messages
 • Telegram voice notes
 • JPEG, PNG and WebP images
+• Links to social media posts and pages
+
+If I can't open a link (TikTok and Instagram often block me), send a screenshot instead and I'll read it.
 
 You can chat in English, Nigerian English or Pidgin. 🤖`, env);
         return new Response("OK");
@@ -322,6 +339,7 @@ You're using My Mini Apps Hub.`, env);
           `Conversation memory: ${env.CHAT_MEMORY ? "Available" : "Not configured"}`,
           `Memory expiry: 30 days`,
           `Web research: ${env.TAVILY_API_KEY ? "Available when needed" : "Not configured"}`,
+          `Link reading: Available`,
           "Language support: English and Nigerian Pidgin"
         ];
 
@@ -363,7 +381,18 @@ ONE HUB. MANY POSSIBILITIES.`, env);
         throw new Error("CHAT_MEMORY KV binding is missing.");
       }
 
-      await sendMessage(chatId, "Thinking... 🤔", env);
+      // ---------- LINK PATH ----------
+      const detectedUrl = extractFirstUrl(text);
+
+      if (detectedUrl) {
+        await sendChatAction(chatId, "typing", env);
+        const linkAnswer = await handleLinkMessage(detectedUrl, text, userId, env);
+        await sendLongMessage(chatId, linkAnswer, env);
+        return new Response("OK");
+      }
+
+      // ---------- TEXT PATH ----------
+      await sendChatAction(chatId, "typing", env);
       const answer = await getAIReply(text, userId, env);
       await sendLongMessage(chatId, answer, env);
 
@@ -397,7 +426,8 @@ async function analyzeTelegramImage(fileId, mimeType, prompt, userId, env) {
   const infoResponse = await fetch(
     `${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/getFile?file_id=${encodeURIComponent(fileId)}`
   );
-    if (!infoResponse.ok) {
+
+  if (!infoResponse.ok) {
     throw new Error("Could not get image information from Telegram.");
   }
 
@@ -428,66 +458,93 @@ async function analyzeTelegramImage(fileId, mimeType, prompt, userId, env) {
   const imageData = `data:${mimeType};base64,${btoa(binary)}`;
   const history = await loadConversationHistory(userId, env);
 
-  const result = await env.AI.run(VISION_MODEL, {
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...history,
-      { role: "user", content: prompt }
-    ],
-    image: imageData,
-    max_tokens: 1200
-  });
+  let answer = "";
 
-  let answer = extractCloudflareAnswer(result);
-  if (!answer) {
-    throw new Error("The vision model returned an empty response.");
+  // FIRST ATTEMPT: Workers AI vision model (image inside message content).
+  try {
+    const result = await env.AI.run(VISION_MODEL, {
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...history,
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: imageData } }
+          ]
+        }
+      ],
+      max_tokens: 1200
+    });
+
+    answer = extractCloudflareAnswer(result);
+  } catch (error) {
+    console.error("VISION MODEL ERROR:", error?.message);
   }
 
-  if (needsWebResearch(prompt)) {
+  // SECOND ATTEMPT: Gemini vision (much better at screenshots).
+  if (!answer && env.GEMINI_API_KEY) {
     try {
-      const researchQuery = `${prompt}\n\nVisible details extracted from the image:\n${answer}`;
-      const researchResults = await searchWeb(researchQuery, env);
-      const researchContext = formatResearchContext(researchResults);
+      const base64Only = imageData.split(",")[1];
 
-      if (researchContext) {
-        const researchPrompt = `The user supplied an image and asked: ${prompt}
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { text: prompt },
+                  { inline_data: { mime_type: mimeType, data: base64Only } }
+                ]
+              }
+            ],
+            generationConfig: {
+              temperature: 0.4,
+              maxOutputTokens: 1200
+            }
+          })
+        }
+      );
 
-Here is what the image analysis identified:
-${answer}
-
-Here are the live web research results:
-${researchContext}
-
-Compare the visible image details with the research results. Clearly distinguish what is visible in the image from what the web results report. Do not assume that an account is authentic or safe. If the results do not establish something, say so.`;
-
-        const researchedAnswer = await env.AI.run(PRIMARY_AI_MODEL, {
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: researchPrompt }
-          ],
-          max_tokens: 1400
-        });
-
-        const improvedAnswer = extractCloudflareAnswer(researchedAnswer);
-        if (improvedAnswer) answer = improvedAnswer;
-      } else {
-        answer += "\n\nI couldn't find enough useful live information to verify this further, so the details above are based on the image.";
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Gemini vision failed: ${response.status} ${errorText.slice(0, 300)}`);
       }
+
+      const data = await response.json();
+      answer = data?.candidates?.[0]?.content?.parts
+        ?.map(part => part.text || "")
+        .join("\n")
+        .trim() || "";
     } catch (error) {
-      console.error("IMAGE WEB RESEARCH ERROR:", error?.message);
-      answer += "\n\nLive web verification was unavailable, so the details above are based on the image only.";
+      console.error("GEMINI VISION ERROR:", error?.message);
     }
   }
 
-  await saveConversationHistory(
-    userId,
-    [
-      ...history,
-      { role: "user", content: `[Image] ${prompt}` },
-      { role: "assistant", content: answer }
-    ],
-    env
-  );
+  if (!answer) {
+    answer = "I couldn't read that image clearly. Try sending a sharper screenshot, or crop it to the part you want me to look at.";
+  }
+
+  // No web research on the image path. The image is the answer.
+
+  try {
+    await saveConversationHistory(
+      userId,
+      [
+        ...history,
+        { role: "user", content: `[Image] ${prompt}` },
+        { role: "assistant", content: answer }
+      ],
+      env
+    );
+  } catch (error) {
+    console.error("MEMORY SAVE ERROR:", error?.message);
+  }
 
   return answer;
 }
@@ -536,6 +593,201 @@ async function transcribeTelegramVoice(fileId, env) {
 
   const transcription = result?.text || result?.transcription_info?.text || "";
   return String(transcription).trim();
+}
+
+// ==========================================
+// LINK HANDLING
+// ==========================================
+
+function extractFirstUrl(text) {
+  const match = String(text || "").match(/https?:\/\/[^\s<>"']+/i);
+  return match ? match[0].replace(/[.,;:!?)]+$/, "") : "";
+}
+
+async function handleLinkMessage(url, fullText, userId, env) {
+  const history = await loadConversationHistory(userId, env);
+  let pageInfo = null;
+
+  try {
+    pageInfo = await fetchPageMetadata(url);
+  } catch (error) {
+    console.error("LINK FETCH ERROR:", url, error?.message);
+  }
+
+  // Could not read the page at all.
+  if (!pageInfo || (!pageInfo.title && !pageInfo.description)) {
+    let host = "that site";
+    try {
+      host = new URL(url).hostname.replace(/^www\./, "");
+    } catch {}
+
+    const answer = `I couldn't open that ${host} link — the site blocks automated access or requires a login.
+
+Send me a screenshot of the page or profile and I'll read it for you. That works for TikTok, Instagram, Facebook, X, YouTube — anything.`;
+
+    try {
+      await saveConversationHistory(
+        userId,
+        [
+          ...history,
+          { role: "user", content: fullText },
+          { role: "assistant", content: answer }
+        ],
+        env
+      );
+    } catch (error) {
+      console.error("MEMORY SAVE ERROR:", error?.message);
+    }
+
+    return answer;
+  }
+
+  const prompt = `The user sent this link: ${url}
+
+Page title: ${pageInfo.title || "Not available"}
+Site: ${pageInfo.siteName || "Unknown"}
+Description: ${pageInfo.description || "Not available"}
+${pageInfo.author ? `Author: ${pageInfo.author}\n` : ""}${pageInfo.publishedTime ? `Published: ${pageInfo.publishedTime}\n` : ""}
+User's message: ${fullText}
+
+Explain what this page is, based only on the metadata above. Be clear that you read the page preview, not the full content. If the user asked to verify something and the metadata does not establish it, say so plainly and suggest they send a screenshot instead.`;
+
+  let answer = "";
+
+  if (env.GEMINI_API_KEY) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.5,
+              maxOutputTokens: 700
+            }
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Gemini link reply failed: ${response.status} ${errorText.slice(0, 300)}`);
+      }
+
+      const data = await response.json();
+      answer = data?.candidates?.[0]?.content?.parts
+        ?.map(part => part.text || "")
+        .join("\n")
+        .trim() || "";
+    } catch (error) {
+      console.error("LINK AI ERROR:", error?.message);
+    }
+  }
+
+  if (!answer && env.AI) {
+    try {
+      const result = await env.AI.run(PRIMARY_AI_MODEL, {
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 700
+      });
+      answer = extractCloudflareAnswer(result);
+    } catch (error) {
+      console.error("LINK GEMMA ERROR:", error?.message);
+    }
+  }
+
+  if (!answer) {
+    answer = `I opened the link but could only read its preview:
+
+${pageInfo.title || "No title"}
+${pageInfo.description || ""}
+
+${url}`;
+  }
+
+  try {
+    await saveConversationHistory(
+      userId,
+      [
+        ...history,
+        { role: "user", content: fullText },
+        { role: "assistant", content: answer }
+      ],
+      env
+    );
+  } catch (error) {
+    console.error("MEMORY SAVE ERROR:", error?.message);
+  }
+
+  return answer;
+}
+
+async function fetchPageMetadata(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LINK_FETCH_TIMEOUT);
+
+  try {
+    const response = await fetch(url, {
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9"
+      }
+    });
+
+    if (!response.ok) {
+      console.log("LINK STATUS:", response.status, url);
+      return null;
+    }
+
+    const html = (await response.text()).slice(0, 400000);
+
+    const meta = (prop) => {
+      const patterns = [
+        new RegExp(`<meta[^>]+property=["']${prop}["'][^>]+content=["']([^"']*)["']`, "i"),
+        new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+property=["']${prop}["']`, "i"),
+        new RegExp(`<meta[^>]+name=["']${prop}["'][^>]+content=["']([^"']*)["']`, "i")
+      ];
+
+      for (const pattern of patterns) {
+        const match = html.match(pattern);
+        if (match) return decodeHtmlEntities(match[1]);
+      }
+
+      return "";
+    };
+
+    const titleTag = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+
+    return {
+      title: meta("og:title") || meta("twitter:title") || (titleTag ? decodeHtmlEntities(titleTag[1]) : ""),
+      description: meta("og:description") || meta("twitter:description") || meta("description"),
+      siteName: meta("og:site_name"),
+      author: meta("article:author") || meta("author"),
+      publishedTime: meta("article:published_time")
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function decodeHtmlEntities(str) {
+  return String(str || "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&#x0*a0;/gi, " ")
+    .trim();
 }
 
 // ==========================================
@@ -596,8 +848,11 @@ function needsWebResearch(text) {
   const value = original.toLowerCase();
   if (!value) return false;
 
+  // Never research a bare URL — the link path handles those.
+  if (/^https?:\/\/\S+$/i.test(original)) return false;
+
   const phrasePatterns = [
-        /\b(latest|today|currently|current|right now|recent|this week|this month|this year|breaking news|news update|updates|exchange rate|weather|forecast|live score|standings|rankings|fixtures|release date|available now|open now)\b/,
+    /\b(latest|today|currently|current|right now|recent|this week|this month|this year|breaking news|news update|updates|exchange rate|weather|forecast|live score|standings|rankings|fixtures|release date|available now|open now)\b/,
     /\b(price|prices|cost|how much does .+ cost|how much is .+|what is the price of .+)\b/,
     /\b(who is|who are|who owns|who founded|who created|who invented|who runs|what happened to|tell me about|what do you know about|information about|profile of)\b/,
     /\b(company|companies|business|businesses|organization|organisation|brand|corporation|headquarters|official website|company history)\b/,
@@ -626,7 +881,7 @@ function needsWebResearch(text) {
     /\?$/.test(original) ||
     /^(who|what|where|when|why|how|which|whose|whom|is|are|was|were|does|do|did|has|have|can|could|will|would)\b/i.test(original);
 
-  // Capitalized proper names and acronyms are a secondary signal, not a trigger by themselves.
+  
   const hasNamedEntity =
     /\b[A-Z]{2,}[A-Za-z0-9.-]*\b/.test(original) ||
     /\b[A-Z][a-z]+(?:\s+[A-Z][A-Za-z]+)+\b/.test(original);
@@ -797,7 +1052,8 @@ function extractCloudflareAnswer(result) {
   if (typeof result === "string") return result.trim();
   if (typeof result.response === "string") return result.response.trim();
   if (typeof result.result === "string") return result.result.trim();
-    if (Array.isArray(result.response)) {
+
+  if (Array.isArray(result.response)) {
     return result.response
       .map(item => typeof item === "string" ? item : item?.text || "")
       .join("\n")
@@ -996,7 +1252,7 @@ async function getAIReply(userMessage, userId, env) {
 
   // THIRD ATTEMPT: GLM
   if (!answer && env.AI) {
-        modelStarted = Date.now();
+    modelStarted = Date.now();
 
     try {
       const result = await env.AI.run(FALLBACK_AI_MODEL, {
@@ -1025,7 +1281,6 @@ async function getAIReply(userMessage, userId, env) {
       env
     );
   } catch (error) {
-    // Do not discard a generated answer just because KV temporarily failed.
     console.error("MEMORY SAVE ERROR:", error?.message);
   }
 
@@ -1069,6 +1324,27 @@ async function sendMessage(chatId, text, env, options = {}) {
 }
 
 // ==========================================
+// TELEGRAM CHAT ACTION
+// ==========================================
+
+async function sendChatAction(chatId, action, env) {
+  if (!env.TELEGRAM_BOT_TOKEN) return;
+
+  try {
+    await fetch(
+      `${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/sendChatAction`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, action })
+      }
+    );
+  } catch (error) {
+    console.error("CHAT ACTION ERROR:", error?.message);
+  }
+}
+
+// ==========================================
 // SEND LONG TELEGRAM MESSAGES
 // ==========================================
 
@@ -1101,7 +1377,6 @@ function splitTelegramMessage(text, limit = TELEGRAM_MESSAGE_LIMIT) {
 async function sendLongMessage(chatId, text, env) {
   let cleanText = String(text || "");
 
-  // Decode HTML entities.
   cleanText = cleanText
     .replace(/&nbsp;|&#160;|&#x0*a0;/gi, " ")
     .replace(/&amp;/gi, "&")
@@ -1109,28 +1384,17 @@ async function sendLongMessage(chatId, text, env) {
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"');
 
-  // Convert Markdown links into readable URLs.
   cleanText = cleanText.replace(
     /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
     "$1: $2"
   );
 
-  // Remove escaped Markdown symbols first.
   cleanText = cleanText.replace(/\\([*_`#])/g, "$1");
-
-  // Remove Markdown heading markers.
   cleanText = cleanText.replace(/^#{1,6}\s*/gm, "");
-
-  // Convert Markdown bullets into normal bullets.
   cleanText = cleanText.replace(/^\s*[-*+]\s+/gm, "• ");
-
-  // Remove bold and italic markers.
   cleanText = cleanText.replace(/\*\*|__|\*|_/g, "");
-
-  // Remove inline code markers.
   cleanText = cleanText.replace(/`{1,3}/g, "");
 
-  // Clean unnecessary spacing.
   cleanText = cleanText
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
@@ -1142,8 +1406,6 @@ async function sendLongMessage(chatId, text, env) {
     await sendMessage(chatId, chunk, env);
   }
 }
-
-
 
 // ==========================================
 // ANSWER TELEGRAM CALLBACK

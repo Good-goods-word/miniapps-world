@@ -801,71 +801,42 @@ function formatResearchContext(data) {
       safeUrl = "";
     }
 
-    return `SOURCE ${index + 1}
+    return `SOURCE [${index + 1}]
 Title: ${item.title}
-URL: ${safeUrl || "Unavailable"}
+Direct article URL: ${safeUrl || "Unavailable"}
+Published date: ${item.published_date || "Not provided"}
 Content: ${item.content.slice(0, 1800)}`;
   });
 
   const directAnswer = data.answer
-    ? `TAVILY SUMMARY:\n${String(data.answer).slice(0, 2000)}\n\n`
+    ? `TAVILY SEARCH SUMMARY:
+${String(data.answer).slice(0, 2000)}
+
+`
     : "";
 
-  return directAnswer + formatted.join("\n\n");
+  return `IMPORTANT SOURCE AND FACT-CHECKING INSTRUCTIONS:
+
+You are answering using web research results.
+
+1. Use only the source URLs supplied below when citing these search results.
+2. Never invent, guess, or modify a source URL.
+3. Attach the correct source link to the specific news item it supports.
+4. Prefer direct article URLs instead of website homepages.
+5. Do not claim a source confirms something if its supplied content does not support that claim.
+6. If a source URL is unavailable, do not invent a replacement.
+7. Clearly distinguish verified information from uncertain reports.
+8. If the search results are insufficient, say so honestly.
+9. Include the publication date when available.
+10. Never present old news as breaking news.
+
+${directAnswer}${formatted.join("\n\n")}`;
 }
 // ==========================================
 // EXTRACT AI RESPONSE
 // ==========================================
 
-function extractCloudflareAnswer(result) {
-  if (!result) {
-    console.log("AI RESULT: Empty result");
-    return "";
-  }
 
-  console.log("AI RESULT DIAGNOSTICS:", {
-    resultType: typeof result,
-    keys: typeof result === "object"
-      ? Object.keys(result)
-      : [],
-    responseType: typeof result.response,
-    responseLength: typeof result.response === "string"
-      ? result.response.length
-      : null,
-    resultTypeNested: typeof result.result
-  });
-
-  if (typeof result === "string") {
-    return result.trim();
-  }
-
-  if (typeof result.response === "string") {
-    return result.response.trim();
-  }
-
-  if (typeof result.result === "string") {
-    return result.result.trim();
-  }
-
-  if (Array.isArray(result.response)) {
-    return result.response
-      .map(item => {
-        if (typeof item === "string") return item;
-        return item?.text || "";
-      })
-      .join("\n")
-      .trim();
-  }
-
-  if (Array.isArray(result.content)) {
-    return result.content
-      .map(item => item?.text || "")
-      .join("\n")
-      .trim();
-  }
-
-  return "";
-}
 
 
 

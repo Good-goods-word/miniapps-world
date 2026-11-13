@@ -16,6 +16,9 @@ const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 const MAX_WEB_RESULTS = 6;
 const TELEGRAM_MESSAGE_LIMIT = 3900;
 const LINK_FETCH_TIMEOUT = 8000;
+const TAVILY_TIMEOUT = 8000;
+const GEMINI_TIMEOUT = 20000;
+const WORKERS_AI_TIMEOUT = 20000;
 
 // MAIN ASSISTANT INSTRUCTIONS
 const SYSTEM_PROMPT = `
@@ -141,6 +144,26 @@ FINAL BEHAVIOUR:
 
 You are My Mini Apps Hub Assistant. Your responses should reflect reliability, intelligence, clarity, respect and practical usefulness.
 `;
+
+// ==========================================
+// FETCH WITH TIMEOUT
+// ==========================================
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`Request timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export default {
   async fetch(request, env) {
@@ -406,7 +429,7 @@ ONE HUB. MANY POSSIBILITIES.`, env);
 
       const chatId = update?.message?.chat?.id;
       if (chatId) {
-        await sendMessage(chatId, "Sorry, something went wrong. Please try again in a moment.", env).catch(() => {});
+        await sendMessage(chatId, `Sorry, something went wrong: ${error?.message || "unknown error"}`, env).catch(() => {});
       }
 
       return new Response("OK");
@@ -487,7 +510,7 @@ async function analyzeTelegramImage(fileId, mimeType, prompt, userId, env) {
     try {
       const base64Only = imageData.split(",")[1];
 
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
         {
           method: "POST",
@@ -508,7 +531,8 @@ async function analyzeTelegramImage(fileId, mimeType, prompt, userId, env) {
               maxOutputTokens: 1200
             }
           })
-        }
+        },
+        GEMINI_TIMEOUT
       );
 
       if (!response.ok) {
@@ -656,7 +680,7 @@ Explain what this page is, based only on the metadata above. Be clear that you r
 
   if (env.GEMINI_API_KEY) {
     try {
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
         {
           method: "POST",
@@ -669,7 +693,8 @@ Explain what this page is, based only on the metadata above. Be clear that you r
               maxOutputTokens: 700
             }
           })
-        }
+        },
+        GEMINI_TIMEOUT
       );
 
       if (!response.ok) {
@@ -865,6 +890,7 @@ function needsWebResearch(text) {
 
   const factualQuestionPatterns = [
     /\bhas .+ announced\b/,
+    /\bdid .+ announce\b
     /\bdid .+ announce\b/,
     /\bdoes .+ exist\b/,
     /\bis .+ legitimate\b/,
@@ -881,7 +907,6 @@ function needsWebResearch(text) {
     /\?$/.test(original) ||
     /^(who|what|where|when|why|how|which|whose|whom|is|are|was|were|does|do|did|has|have|can|could|will|would)\b/i.test(original);
 
-  
   const hasNamedEntity =
     /\b[A-Z]{2,}[A-Za-z0-9.-]*\b/.test(original) ||
     /\b[A-Z][a-z]+(?:\s+[A-Z][A-Za-z]+)+\b/.test(original);
@@ -927,11 +952,15 @@ async function searchWeb(query, env) {
     timeRange: searchSettings.time_range || "not filtered"
   });
 
-  const response = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(searchSettings)
-  });
+  const response = await fetchWithTimeout(
+    "https://api.tavily.com/search",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(searchSettings)
+    },
+    TAVILY_TIMEOUT
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -1198,7 +1227,7 @@ async function getAIReply(userMessage, userId, env) {
     }
 
     const contents = buildGeminiContents(history, currentMessage);
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
       {
         method: "POST",
@@ -1211,7 +1240,8 @@ async function getAIReply(userMessage, userId, env) {
             maxOutputTokens: 700
           }
         })
-      }
+      },
+      GEMINI_TIMEOUT
     );
 
     if (!response.ok) {

@@ -969,8 +969,6 @@ async function getAIReply(userMessage, userId, env) {
 
   // Run web research only when necessary.
   if (needsWebResearch(userMessage)) {
-    const researchStarted = Date.now();
-
     try {
       const researchResults = await searchWeb(userMessage, env);
       researchContext = formatResearchContext(researchResults);
@@ -981,16 +979,9 @@ async function getAIReply(userMessage, userId, env) {
       }
     } catch (error) {
       console.error("WEB RESEARCH ERROR:", error?.message);
-
       researchStatus =
         "Live web research failed or is unavailable.";
     }
-
-    console.log(
-      "WEB RESEARCH TIME:",
-      Date.now() - researchStarted,
-      "ms"
-    );
   }
 
   const currentMessage = buildAIUserMessage(
@@ -1006,28 +997,79 @@ async function getAIReply(userMessage, userId, env) {
   ];
 
   let answer = "";
-
-  // FIRST ATTEMPT: PRIMARY MODEL
   let modelStarted = Date.now();
 
+  // FIRST ATTEMPT: GEMINI
   try {
-    const result = await env.AI.run(PRIMARY_AI_MODEL, {
-      messages,
-      max_tokens: 700
-    });
+    if (!env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured.");
+    }
 
-    answer = extractCloudflareAnswer(result);
-
-    console.log(
-      "PRIMARY MODEL TIME:",
-      Date.now() - modelStarted,
-      "ms"
+    const contents = buildGeminiContents(
+      history,
+      currentMessage
     );
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: SYSTEM_PROMPT }]
+          },
+          contents,
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 700
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Gemini request failed: ${response.status} ${errorText.slice(0, 300)}`
+      );
+    }
+
+    const data = await response.json();
+
+    answer = data?.candidates?.[0]?.content?.parts
+      ?.map(part => part.text || "")
+      .join("\n")
+      .trim() || "";
+
+    console.log("GEMINI MODEL TIME:", Date.now() - modelStarted, "ms");
+
   } catch (error) {
-    console.error("PRIMARY AI MODEL ERROR:", error?.message);
+    console.error("GEMINI AI ERROR:", error?.message);
   }
 
-  // SECOND ATTEMPT: FALLBACK MODEL
+  // SECOND ATTEMPT: GEMMA
+  if (!answer) {
+    modelStarted = Date.now();
+
+    try {
+      const result = await env.AI.run(PRIMARY_AI_MODEL, {
+        messages,
+        max_tokens: 700
+      });
+
+      answer = extractCloudflareAnswer(result);
+
+      console.log("GEMMA MODEL TIME:", Date.now() - modelStarted, "ms");
+
+    } catch (error) {
+      console.error("GEMMA AI ERROR:", error?.message);
+    }
+  }
+
+  // THIRD ATTEMPT: GLM
   if (!answer) {
     modelStarted = Date.now();
 
@@ -1039,73 +1081,10 @@ async function getAIReply(userMessage, userId, env) {
 
       answer = extractCloudflareAnswer(result);
 
-      console.log(
-        "FALLBACK MODEL TIME:",
-        Date.now() - modelStarted,
-        "ms"
-      );
-    } catch (error) {
-      console.error("FALLBACK AI MODEL ERROR:", error?.message);
-    }
-  }
-
-  // THIRD ATTEMPT: GEMINI
-  if (!answer) {
-    modelStarted = Date.now();
-
-    try {
-      if (!env.GEMINI_API_KEY) {
-        throw new Error("GEMINI_API_KEY is not configured.");
-      }
-
-      const contents = buildGeminiContents(
-        history,
-        currentMessage
-      );
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            systemInstruction: {
-              parts: [{ text: SYSTEM_PROMPT }]
-            },
-            contents,
-            generationConfig: {
-              temperature: 0.7,
-              maxOutputTokens: 700
-            }
-          })
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-
-        throw new Error(
-          `Gemini request failed: ${response.status} ${errorText.slice(0, 300)}`
-        );
-      }
-
-      const data = await response.json();
-
-      answer = data?.candidates?.[0]?.content?.parts
-        ?.map(part => part.text || "")
-        .join("\n")
-        .trim() || "";
-
-      console.log(
-        "GEMINI MODEL TIME:",
-        Date.now() - modelStarted,
-        "ms"
-      );
+      console.log("GLM MODEL TIME:", Date.now() - modelStarted, "ms");
 
     } catch (error) {
-      console.error("GEMINI AI ERROR:", error?.message);
+      console.error("GLM AI ERROR:", error?.message);
     }
   }
 
@@ -1133,6 +1112,8 @@ async function getAIReply(userMessage, userId, env) {
 
   return answer;
 }
+
+
 
 
 // ==========================================

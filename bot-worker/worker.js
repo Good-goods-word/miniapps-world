@@ -867,7 +867,6 @@ async function saveConversationHistory(userId, history, env) {
 // ==========================================
 // WEB RESEARCH DETECTION
 // ==========================================
-
 function needsWebResearch(text) {
   const original = String(text || "").trim();
   const value = original.toLowerCase();
@@ -890,7 +889,6 @@ function needsWebResearch(text) {
 
   const factualQuestionPatterns = [
     /\bhas .+ announced\b/,
-    /\bdid .+ announce\b
     /\bdid .+ announce\b/,
     /\bdoes .+ exist\b/,
     /\bis .+ legitimate\b/,
@@ -913,6 +911,8 @@ function needsWebResearch(text) {
 
   return isQuestion && hasNamedEntity;
 }
+
+
 
 // ==========================================
 // TAVILY WEB SEARCH

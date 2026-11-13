@@ -1098,17 +1098,37 @@ function splitTelegramMessage(text, limit = TELEGRAM_MESSAGE_LIMIT) {
   return chunks;
 }
 async function sendLongMessage(chatId, text, env) {
-  let formattedText = String(text || "");
+  let cleanText = String(text || "");
 
-  formattedText = formattedText.replace(/\*\*(.*?)\*\*/gs, "*$1*");
-  formattedText = formattedText.replace(/^#{1,6}\s+(.+)$/gm, "*$1*");
+  // Convert HTML spacing entities into normal spaces.
+  cleanText = cleanText.replace(/&nbsp;|&#160;|&#x0*a0;/gi, " ");
 
-  const chunks = splitTelegramMessage(formattedText);
+  // Convert Markdown links into readable titles and URLs.
+  cleanText = cleanText.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
+    "$1: $2"
+  );
+
+  // Remove Markdown headings.
+  cleanText = cleanText.replace(/^#{1,6}\s*/gm, "");
+
+  // Remove bold and italic formatting symbols.
+  cleanText = cleanText.replace(/\*\*/g, "");
+  cleanText = cleanText.replace(/__/g, "");
+  cleanText = cleanText.replace(/\\([*_])/g, "$1");
+
+  // Remove unnecessary inline code markers.
+  cleanText = cleanText.replace(/`{1,3}/g, "");
+
+  // Clean spacing.
+  cleanText = cleanText.replace(/[ \t]+\n/g, "\n");
+  cleanText = cleanText.replace(/\n{3,}/g, "\n\n");
+  cleanText = cleanText.trim();
+
+  const chunks = splitTelegramMessage(cleanText);
 
   for (const chunk of chunks) {
-    await sendMessage(chatId, chunk, env, {
-      parse_mode: "Markdown"
-    });
+    await sendMessage(chatId, chunk, env);
   }
 }
 

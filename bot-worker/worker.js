@@ -730,19 +730,42 @@ async function searchWeb(query, env) {
     throw new Error("TAVILY_API_KEY is not configured.");
   }
 
+  const queryText = String(query || "").slice(0, 1000);
+
+  const isNewsQuery =
+    /\b(news|latest|breaking|today|yesterday|this week|recent|headlines|current events)\b/i
+      .test(queryText);
+
+  const isTodayQuery =
+    /\b(today|breaking|this morning|tonight)\b/i
+      .test(queryText);
+
+  const searchSettings = {
+    api_key: env.TAVILY_API_KEY,
+    query: queryText,
+    search_depth: isNewsQuery ? "advanced" : "basic",
+    max_results: MAX_WEB_RESULTS,
+    include_answer: true,
+    include_raw_content: false
+  };
+
+  if (isNewsQuery) {
+    searchSettings.topic = "news";
+    searchSettings.time_range = isTodayQuery ? "day" : "week";
+  }
+
+  console.log("TAVILY SEARCH SETTINGS:", {
+    topic: searchSettings.topic || "general",
+    searchDepth: searchSettings.search_depth,
+    timeRange: searchSettings.time_range || "not filtered"
+  });
+
   const response = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({
-      api_key: env.TAVILY_API_KEY,
-      query: String(query).slice(0, 1000),
-      search_depth: "basic",
-      max_results: MAX_WEB_RESULTS,
-      include_answer: true,
-      include_raw_content: false
-    })
+    body: JSON.stringify(searchSettings)
   });
 
   if (!response.ok) {
@@ -759,8 +782,16 @@ async function searchWeb(query, env) {
     throw new Error("Tavily returned an unexpected response.");
   }
 
+  console.log("TAVILY RESULTS:", {
+    count: data.results.length,
+    titles: data.results.map(item => item.title),
+    urls: data.results.map(item => item.url)
+  });
+
   return data;
 }
+
+
 
 
 // ==========================================

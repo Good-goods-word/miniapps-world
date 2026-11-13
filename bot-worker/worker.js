@@ -1097,13 +1097,21 @@ function splitTelegramMessage(text, limit = TELEGRAM_MESSAGE_LIMIT) {
   if (rest) chunks.push(rest);
   return chunks;
 }
-
 async function sendLongMessage(chatId, text, env) {
-  const chunks = splitTelegramMessage(text);
+  let formattedText = String(text || "");
+
+  formattedText = formattedText.replace(/\*\*(.*?)\*\*/gs, "*$1*");
+  formattedText = formattedText.replace(/^#{1,6}\s+(.+)$/gm, "*$1*");
+
+  const chunks = splitTelegramMessage(formattedText);
+
   for (const chunk of chunks) {
-    await sendMessage(chatId, chunk, env);
+    await sendMessage(chatId, chunk, env, {
+      parse_mode: "Markdown"
+    });
   }
 }
+
 
 // ==========================================
 // ANSWER TELEGRAM CALLBACK

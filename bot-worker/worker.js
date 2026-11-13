@@ -904,18 +904,43 @@ WEB RESEARCH RESULTS:
 
 ${researchContext}
 
-Use these results when relevant. Distinguish sourced information from your own explanation. Cite the numbered sources provided above.`;
+IMPORTANT RESEARCH AND CITATION RULES:
+
+1. Use the supplied research results to answer questions about current events.
+2. Verify each important claim against the supplied source content.
+3. For every separate news story, provide its own supporting source.
+4. Include the direct article URL supplied for that specific story.
+5. Never use one general homepage or roundup link as the source for multiple unrelated stories.
+6. Never invent, guess, or modify URLs.
+7. Do not combine unrelated stories under one citation.
+8. If a story has no suitable direct article URL, say that a direct source link was unavailable.
+9. Do not present unsupported claims as confirmed facts.
+10. If the research results do not contain enough reliable information, explain that honestly.
+11. Include publication dates when available.
+12. Keep the response readable, with clean paragraphs and properly formatted headings.
+
+For news requests, use this format:
+
+**1. News headline**
+Brief explanation of the development.
+Source: [Publication or article title](exact supplied URL)
+
+Repeat for each separate news story.
+
+Do not create a source link unless its exact URL appears in the supplied research results.`;
   } else if (researchStatus) {
     message += `
 
 LIVE RESEARCH NOTICE:
 ${researchStatus}
 
-Be transparent that current information could not be verified live. Do not pretend that a search succeeded.`;
+Be transparent that current information could not be verified live. Do not pretend that a search succeeded or invent sources.`;
   }
 
   return message;
 }
+
+
 
 
 // ==========================================

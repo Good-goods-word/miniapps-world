@@ -810,6 +810,33 @@ function formatResearchContext(data) {
       typeof item.url === "string" &&
       typeof item.content === "string"
     )
+    .map(item => {
+      let safeUrl = "";
+
+      try {
+        const parsedUrl = new URL(item.url);
+
+        if (
+          parsedUrl.protocol === "https:" ||
+          parsedUrl.protocol === "http:"
+        ) {
+          safeUrl = parsedUrl.href;
+        }
+      } catch {
+        safeUrl = "";
+      }
+
+      return {
+        title: item.title,
+        url: safeUrl,
+        publishedDate:
+          typeof item.published_date === "string"
+            ? item.published_date
+            : "Not provided",
+        content: item.content.slice(0, 2400)
+      };
+    })
+    .filter(item => item.url)
     .slice(0, MAX_WEB_RESULTS);
 
   if (results.length === 0) {
@@ -817,52 +844,59 @@ function formatResearchContext(data) {
   }
 
   const formatted = results.map((item, index) => {
-    let safeUrl = "";
-
-    try {
-      const parsedUrl = new URL(item.url);
-
-      if (
-        parsedUrl.protocol === "https:" ||
-        parsedUrl.protocol === "http:"
-      ) {
-        safeUrl = parsedUrl.href;
-      }
-    } catch {
-      safeUrl = "";
-    }
-
     return `SOURCE [${index + 1}]
 Title: ${item.title}
-Direct article URL: ${safeUrl || "Unavailable"}
-Published date: ${item.published_date || "Not provided"}
-Content: ${item.content.slice(0, 1800)}`;
+URL: ${item.url}
+Publication date: ${item.publishedDate}
+Article content:
+${item.content}`;
   });
 
   const directAnswer = data.answer
-    ? `TAVILY SEARCH SUMMARY:
+    ? `TAVILY SEARCH SUMMARY (USE AS A SEARCH AID, NOT AS AN INDEPENDENT SOURCE):
 ${String(data.answer).slice(0, 2000)}
 
 `
     : "";
 
-  return `IMPORTANT SOURCE AND FACT-CHECKING INSTRUCTIONS:
+  return `IMPORTANT WEB RESEARCH AND SOURCE VERIFICATION RULES:
 
-You are answering using web research results.
+You are answering using the web research results supplied below.
 
-1. Use only the source URLs supplied below when citing these search results.
-2. Never invent, guess, or modify a source URL.
-3. Attach the correct source link to the specific news item it supports.
-4. Prefer direct article URLs instead of website homepages.
-5. Do not claim a source confirms something if its supplied content does not support that claim.
-6. If a source URL is unavailable, do not invent a replacement.
-7. Clearly distinguish verified information from uncertain reports.
-8. If the search results are insufficient, say so honestly.
-9. Include the publication date when available.
-10. Never present old news as breaking news.
+SOURCE HANDLING:
+1. Treat every source as a separate document.
+2. Match every factual claim to the source that actually supports it.
+3. Use the exact URL supplied for that source.
+4. Never invent, guess, shorten, or modify a URL.
+5. Never use one source to support unrelated news stories.
+6. Prefer original reporting, official announcements, and direct article pages.
+7. A general news roundup, homepage, trend guide, or category page is NOT a direct article.
+8. Do not describe a link as a direct article unless its title and content identify the specific story.
+9. If only a general page is available, disclose that a direct article link was not found.
+10. Do not invent publication dates. If no date is supplied, say "Publication date not provided."
+
+FACT CHECKING:
+11. Do not treat the Tavily search summary as proof of a claim.
+12. Do not present an allegation, prediction, or opinion as an established fact.
+13. For major announcements, leadership changes, financial claims, and controversial stories, look for reliable supporting sources.
+14. If sources disagree, explain the disagreement.
+15. If the evidence is insufficient, say so instead of guessing.
+16. Do not present old information as breaking news.
+
+NEWS RESPONSE FORMAT:
+For each story provide:
+- Headline
+- Brief explanation
+- Publication date, if available
+- Its own supporting source and exact URL
+
+Only include stories that are supported by the supplied research results.
+Do not invent extra stories to reach a requested number.
 
 ${directAnswer}${formatted.join("\n\n")}`;
 }
+
+
 // ==========================================
 // EXTRACT AI RESPONSE
 // ==========================================

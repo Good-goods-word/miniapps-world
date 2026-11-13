@@ -1097,33 +1097,44 @@ function splitTelegramMessage(text, limit = TELEGRAM_MESSAGE_LIMIT) {
   if (rest) chunks.push(rest);
   return chunks;
 }
+
 async function sendLongMessage(chatId, text, env) {
   let cleanText = String(text || "");
 
-  // Convert HTML spacing entities into normal spaces.
-  cleanText = cleanText.replace(/&nbsp;|&#160;|&#x0*a0;/gi, " ");
+  // Decode HTML entities.
+  cleanText = cleanText
+    .replace(/&nbsp;|&#160;|&#x0*a0;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"');
 
-  // Convert Markdown links into readable titles and URLs.
+  // Convert Markdown links into readable URLs.
   cleanText = cleanText.replace(
     /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
     "$1: $2"
   );
 
-  // Remove Markdown headings.
+  // Remove escaped Markdown symbols first.
+  cleanText = cleanText.replace(/\\([*_`#])/g, "$1");
+
+  // Remove Markdown heading markers.
   cleanText = cleanText.replace(/^#{1,6}\s*/gm, "");
 
-  // Remove bold and italic formatting symbols.
-  cleanText = cleanText.replace(/\*\*/g, "");
-  cleanText = cleanText.replace(/__/g, "");
-  cleanText = cleanText.replace(/\\([*_])/g, "$1");
+  // Convert Markdown bullets into normal bullets.
+  cleanText = cleanText.replace(/^\s*[-*+]\s+/gm, "• ");
 
-  // Remove unnecessary inline code markers.
+  // Remove bold and italic markers.
+  cleanText = cleanText.replace(/\*\*|__|\*|_/g, "");
+
+  // Remove inline code markers.
   cleanText = cleanText.replace(/`{1,3}/g, "");
 
-  // Clean spacing.
-  cleanText = cleanText.replace(/[ \t]+\n/g, "\n");
-  cleanText = cleanText.replace(/\n{3,}/g, "\n\n");
-  cleanText = cleanText.trim();
+  // Clean unnecessary spacing.
+  cleanText = cleanText
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 
   const chunks = splitTelegramMessage(cleanText);
 
@@ -1131,6 +1142,7 @@ async function sendLongMessage(chatId, text, env) {
     await sendMessage(chatId, chunk, env);
   }
 }
+
 
 
 // ==========================================

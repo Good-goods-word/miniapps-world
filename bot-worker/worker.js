@@ -651,134 +651,146 @@ async function saveConversationHistory(userId, history, env) {
 // ==========================================
 
 function needsWebResearch(text) {
-  const value = String(text || "").toLowerCase().trim();
+  const original = String(text || "").trim();
+  const value = original.toLowerCase();
 
   if (!value) return false;
 
+  // Current and time-sensitive information
   const researchTerms = [
-    // Current and recent information
-    "latest",
-    "today",
-    "currently",
-    "current",
-    "right now",
-    "recent",
-    "this week",
-    "this month",
-    "2026",
-    "news",
-    "update",
-    "updates",
-
-    // Prices and availability
-    "price",
-    "prices",
-    "cost",
-    "exchange rate",
-    "weather",
-    "forecast",
-    "availability",
-    "available now",
-    "open now",
-
-    // Sports
-    "score",
-    "results",
-    "standing",
-    "standings",
-    "ranking",
-    "rankings",
-    "schedule",
-    "fixture",
-    "fixtures",
-
-    // People and public figures
-    "who is",
-    "who are",
-    "who owns",
-    "who founded",
-    "who created",
-    "who invented",
-    "founder",
-    "ceo",
-    "president",
-    "public figure",
-    "biography",
-    "profile of",
-    "about ",
-    "what happened",
-    "is it true",
-    "verify",
-    "verification",
-    "fact check",
-    "fact-check",
-
-    // Companies and businesses
-    "company",
-    "companies",
-    "business",
-    "businesses",
-    "organization",
-    "organisation",
-    "brand",
-    "brands",
-    "official website",
-
-    // Products and technology
-    "product",
-    "products",
-    "service",
-    "services",
-    "software",
-    "technology",
-    "device",
-    "devices",
-    "release date",
-    "released",
-    "launched",
-
-    // Apps and platforms
-    "app",
-    "apps",
-    "application",
-    "applications",
-    "platform",
-    "platforms",
-    "website",
-
-    // Social media
-    "account",
-    "profile",
-    "username",
-    "instagram",
-    "facebook",
-    "tiktok",
-    "twitter",
-    "x.com",
-    "linkedin",
-    "youtube",
-    "social media",
-
-    // Explicit research requests
-    "research",
-    "source",
-    "sources",
-    "find out",
-    "look up",
-    "search for",
-    "tell me about",
-    "information about",
-    "more about",
-    "what do you know about",
-    "compare",
-    "comparison",
-    "official announcement",
-    "original article",
-    "original source"
+    "latest", "today", "currently", "current",
+    "right now", "recent", "this week", "this month",
+    "this year", "2026", "news", "breaking news",
+    "update", "updates", "price", "prices",
+    "cost", "exchange rate", "weather", "forecast",
+    "score", "results", "standing", "standings",
+    "ranking", "rankings", "schedule", "fixture",
+    "fixtures", "release date", "availability",
+    "available now", "open now"
   ];
 
-  return researchTerms.some(term => value.includes(term));
+  // People and public figures
+  const peopleTerms = [
+    "who is", "who are", "who owns", "who founded",
+    "who created", "who invented", "who runs",
+    "who is the ceo", "founder", "ceo",
+    "president", "biography", "public figure",
+    "celebrity", "politician", "artist",
+    "musician", "athlete", "influencer",
+    "profile of", "information about",
+    "tell me about", "what happened to"
+  ];
+
+  // Companies and organizations
+  const companyTerms = [
+    "company", "companies", "business",
+    "businesses", "organization", "organisation",
+    "brand", "brands", "corporation",
+    "headquarters", "management", "employees",
+    "official website", "company history",
+    "business profile"
+  ];
+
+  // Technology, apps and products
+  const technologyTerms = [
+    "app", "apps", "application", "applications",
+    "platform", "platforms", "website", "websites",
+    "software", "technology", "product", "products",
+    "service", "services", "device", "devices",
+    "gadget", "gadgets", "artificial intelligence",
+    "ai model", "ai models", "chatbot",
+    "operating system", "phone", "smartphone",
+    "launched", "released", "release date"
+  ];
+
+  // Social media and online accounts
+  const socialTerms = [
+    "account", "profile", "username", "handle",
+    "instagram", "facebook", "tiktok",
+    "twitter", "x.com", "linkedin",
+    "youtube", "snapchat", "telegram",
+    "social media", "followers", "following",
+    "verified account", "official account"
+  ];
+
+  // Verification and research requests
+  const verificationTerms = [
+    "is it true", "verify", "verification",
+    "fact check", "fact-check", "real or fake",
+    "is this real", "is this genuine",
+    "research", "source", "sources",
+    "find out", "look up", "search for",
+    "compare", "comparison", "official announcement",
+    "original article", "original source",
+    "direct link", "reliable source",
+    "evidence", "proof", "confirm"
+  ];
+
+  // Questions that commonly require factual research
+  const factualQuestionPatterns = [
+    /\bwho is\b/,
+    /\bwho are\b/,
+    /\bwho owns\b/,
+    /\bwho founded\b/,
+    /\bwho created\b/,
+    /\bwhat happened to\b/,
+    /\btell me about\b/,
+    /\bwhat do you know about\b/,
+    /\binformation about\b/,
+    /\bdetails about\b/,
+    /\bexplain what happened\b/,
+    /\bhas .+ announced\b/,
+    /\bdid .+ announce\b/,
+    /\bdoes .+ exist\b/,
+    /\bis .+ legitimate\b/,
+    /\bis .+ still operating\b/,
+    /\bhow much does .+ cost\b/,
+    /\bwhere is .+ located\b/,
+    /\bwhen was .+ founded\b/
+  ];
+
+  const matchesAny = terms =>
+    terms.some(term => value.includes(term));
+
+  if (
+    matchesAny(researchTerms) ||
+    matchesAny(peopleTerms) ||
+    matchesAny(companyTerms) ||
+    matchesAny(technologyTerms) ||
+    matchesAny(socialTerms) ||
+    matchesAny(verificationTerms)
+  ) {
+    return true;
+  }
+
+  if (
+    factualQuestionPatterns.some(pattern =>
+      pattern.test(value)
+    )
+  ) {
+    return true;
+  }
+
+  // Detect questions mentioning likely named entities.
+  // This helps with names such as OpenAI, ChatGPT,
+  // Jensen Huang, Google, and Nvidia.
+  const hasNamedEntity =
+    /\b[A-Z]{2,}[A-Za-z0-9.-]*\b/.test(original) ||
+    /\b[A-Z][a-z]+(?:\s+[A-Z][A-Za-z]+)+\b/.test(original);
+
+  const isQuestion =
+    /\?$/.test(original) ||
+    /^(who|what|where|when|why|how|which|whose|whom|is|are|was|were|does|do|did|has|have|can|could|will|would)\b/i
+      .test(original);
+
+  if (isQuestion && hasNamedEntity) {
+    return true;
+  }
+
+  return false;
 }
+
+
 
 
 

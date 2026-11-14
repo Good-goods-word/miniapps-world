@@ -594,6 +594,11 @@ async function analyzeTelegramImage(fileId, mimeType, prompt, userId, env) {
   const imageData = `data:${mimeType};base64,${btoa(binary)}`;
   const history = await loadConversationHistory(userId, env);
 
+  // Strong instruction: describe only what is visible, never guess the platform.
+  const visionPrompt = `${prompt}
+
+Describe only what is actually visible in this image. State which app or platform the screenshot is from only if the evidence is clear — a logo, distinctive UI, button colours, or layout. If you are unsure which platform it is, say so instead of guessing. Do not mention research results or sources.`;
+
   let answer = "";
 
   // FIRST ATTEMPT: Workers AI vision model (image inside message content).
@@ -605,7 +610,7 @@ async function analyzeTelegramImage(fileId, mimeType, prompt, userId, env) {
         {
           role: "user",
           content: [
-            { type: "text", text: prompt },
+            { type: "text", text: visionPrompt },
             { type: "image_url", image_url: { url: imageData } }
           ]
         }
@@ -634,7 +639,7 @@ async function analyzeTelegramImage(fileId, mimeType, prompt, userId, env) {
               {
                 role: "user",
                 parts: [
-                  { text: prompt },
+                  { text: visionPrompt },
                   { inline_data: { mime_type: mimeType, data: base64Only } }
                 ]
               }
@@ -685,6 +690,7 @@ async function analyzeTelegramImage(fileId, mimeType, prompt, userId, env) {
 
   return answer;
 }
+
 
 // ==========================================
 // TELEGRAM VOICE TRANSCRIPTION

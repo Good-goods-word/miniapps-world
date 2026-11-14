@@ -1071,6 +1071,8 @@ Only include stories supported by the supplied research results.
 Do not invent extra stories to reach a requested number.
 
 ${directAnswer}${formatted.join("\n\n")}`;
+}
+
 
 
 // ==========================================

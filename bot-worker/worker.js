@@ -1422,11 +1422,24 @@ async function sendLongMessage(chatId, text, env) {
     "$1: $2"
   );
 
+  // Protect URLs so formatting cleanup never damages them.
+  const protectedUrls = [];
+  cleanText = cleanText.replace(/https?:\/\/[^\s<>"')\]]+/g, (url) => {
+    protectedUrls.push(url);
+    return `\u0000URL${protectedUrls.length - 1}\u0000`;
+  });
+
   cleanText = cleanText.replace(/\\([*_`#])/g, "$1");
   cleanText = cleanText.replace(/^#{1,6}\s*/gm, "");
   cleanText = cleanText.replace(/^\s*[-*+]\s+/gm, "• ");
   cleanText = cleanText.replace(/\*\*|__|\*|_/g, "");
   cleanText = cleanText.replace(/`{1,3}/g, "");
+
+  // Restore URLs exactly as they were.
+  cleanText = cleanText.replace(/\u0000URL(\d+)\u0000/g, (match, index) => {
+    const url = protectedUrls[Number(index)];
+    return url === undefined ? match : url;
+  });
 
   cleanText = cleanText
     .replace(/[ \t]+\n/g, "\n")
@@ -1439,6 +1452,7 @@ async function sendLongMessage(chatId, text, env) {
     await sendMessage(chatId, chunk, env);
   }
 }
+
 
 // ==========================================
 // ANSWER TELEGRAM CALLBACK

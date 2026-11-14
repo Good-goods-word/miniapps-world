@@ -7,6 +7,7 @@ const FALLBACK_AI_MODEL = "@cf/meta/llama-3.1-8b-instruct";
 const WHISPER_MODEL = "@cf/openai/whisper";
 const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
 const GEMINI_MODEL = "gemini-3.8-flash";
+const IMAGE_GEN_MODEL = "@cf/black-forest-labs/flux-1-schnell";
 
 
 // LIMITS
@@ -147,10 +148,10 @@ RESPONSE QUALITY:
 - Never open a reply with "I think I do", "So you're saying", or a recap of what the user just said. Just answer.
 - When the user asks "do you get me?" or similar, do NOT recap what they said. Answer as if they asked the question directly.
 
-IMAGE GENERATION AND EDITING:
-- You can generate new images from a description.
-- You can modify, enhance and correct images the user uploads.
-- Only say you created or edited an image when the operation actually succeeded. If it failed, say so plainly.
+IMAGE GENERATION:
+- You can generate new images from a text description when the user uses the /imagine command.
+- You cannot edit, modify or enhance an uploaded image. If a user asks for that, say plainly that image editing is not available yet and offer to generate a new image instead.
+- Only say you created an image when the operation actually succeeded. If it failed, say so plainly.
 
 FINAL BEHAVIOUR:
 - Be helpful without pretending to know everything.
@@ -180,6 +181,42 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+// ==========================================
+// TELEGRAM SEND PHOTO
+// ==========================================
+
+async function sendPhoto(chatId, base64, caption, env) {
+  if (!env.TELEGRAM_BOT_TOKEN) {
+    throw new Error("TELEGRAM_BOT_TOKEN is missing.");
+  }
+
+  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  const blob = new Blob([bytes], { type: "image/jpeg" });
+
+  const form = new FormData();
+  form.append("chat_id", String(chatId));
+  form.append("caption", String(caption || "").slice(0, 1000));
+  form.append("photo", blob, "image.jpg");
+
+  const response = await fetchWithTimeout(
+    `${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`,
+    { method: "POST", body: form },
+    30000
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Telegram sendPhoto failed: ${response.status} ${errorText.slice(0, 300)}`);
+  }
+
+  const data = await response.json();
+  if (!data.ok) {
+    throw new Error(`Telegram rejected the photo: ${data.description || "Unknown error"}`);
+  }
+
+  return data;
 }
 
 export default {
@@ -347,6 +384,7 @@ Use /help to see my commands.`, env);
 /start — Start the bot
 /help — Get help
 /apps — Explore mini apps
+/imagine — Make an image from a description
 /profile — View your profile
 /settings — Bot settings
 /about — About this bot
@@ -392,6 +430,7 @@ You're using My Mini Apps Hub.`, env);
           `AI chat: ${env.GEMINI_API_KEY || env.AI ? "Available" : "Not configured"}`,
           `Voice transcription: ${env.AI ? "Available" : "Not configured"}`,
           `Image understanding: ${env.AI ? "Available" : "Not configured"}`,
+          `Image generation: ${env.AI ? "Available" : "Not configured"}`,
           `Conversation memory: ${env.CHAT_MEMORY ? "Available" : "Not configured"}`,
           `Memory expiry: 30 days`,
           `Web research: ${env.TAVILY_API_KEY ? "Available when needed" : "Not configured"}`,
@@ -415,6 +454,40 @@ Your personal gateway to useful digital tools, smart assistance and mini applica
 Explore tools, ask questions and enjoy a growing collection of digital services.
 
 ONE HUB. MANY POSSIBILITIES.`, env);
+        return new Response("OK");
+      }
+
+      if (command === "/imagine") {
+        if (!env.AI) {
+          await sendMessage(chatId, "Image generation is not configured.", env);
+          return new Response("OK");
+        }
+
+        const prompt = text.replace(/^\/imagine(@\S+)?\s*/i, "").trim();
+
+        if (!prompt) {
+          await sendMessage(chatId, "Send it like this:\n/imagine a red bicycle in the rain", env);
+          return new Response("OK");
+        }
+
+        await sendChatAction(chatId, "upload_photo", env);
+
+        try {
+          const result = await env.AI.run(IMAGE_GEN_MODEL, {
+            prompt: prompt.slice(0, 2000),
+            steps: 4
+          });
+
+          if (!result?.image) {
+            throw new Error("No image returned.");
+          }
+
+          await sendPhoto(chatId, result.image, `🎨 ${prompt}`.slice(0, 1000), env);
+        } catch (error) {
+          console.error("IMAGE GEN ERROR:", error?.message);
+          await sendMessage(chatId, "I couldn't make that image. Try a different description.", env);
+        }
+
         return new Response("OK");
       }
 
@@ -813,40 +886,304 @@ async function fetchPageMetadata(url) {
       const patterns = [
         new RegExp(`<meta[^>]+property=["']${prop}["'][^>]+content=["']([^"']*)["']`, "i"),
         new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+property=["']${prop}["']`, "i"),
-        new RegExp(`<meta[^>]+name=["']${prop}["'][^>]+content=["']([^"']*)["']`, "i")
+        new RegExp(`<meta[^>]+name=["']${prop}["'][^>]+content=["']([
+        new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+name=["']${prop}["']`, "i")
       ];
 
       for (const pattern of patterns) {
         const match = html.match(pattern);
-        if (match) return decodeHtmlEntities(match[1]);
+        if (match && match[1]) {
+          return decodeHtmlEntities(match[1].trim());
+        }
       }
-
       return "";
     };
 
-    const titleTag = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    const title = meta("og:title") || (titleMatch ? decodeHtmlEntities(titleMatch[1].trim()) : "");
 
     return {
-      title: meta("og:title") || meta("twitter:title") || (titleTag ? decodeHtmlEntities(titleTag[1]) : ""),
-      description: meta("og:description") || meta("twitter:description") || meta("description"),
-      siteName: meta("og:site_name"),
-      author: meta("article:author") || meta("author"),
-      publishedTime: meta("article:published_time")
+      title: title.slice(0, 300),
+      description: meta("og:description").slice(0, 800) || meta("description").slice(0, 800),
+      siteName: meta("og:site_name").slice(0, 100),
+      author: meta("author").slice(0, 100),
+      publishedTime: meta("article:published_time").slice(0, 100),
+      url
     };
+  } catch (error) {
+    console.error("PAGE METADATA ERROR:", error?.message);
+    return null;
   } finally {
     clearTimeout(timer);
   }
 }
 
-function decodeHtmlEntities(str) {
-  return String(str || "")
+function decodeHtmlEntities(text) {
+  return String(text || "")
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
-    .replace(/&#0?39;|&apos;/g, "'")
-    .replace(/&#x0*a0;/gi, " ")
-    .trim();
+    .replace(/&#0?39;/g, "'")
+    .replace(/&#x27;/gi, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)));
+}
+
+// ==========================================
+// WEB RESEARCH (TAVILY)
+// ==========================================
+
+async function tavilySearch(query, env) {
+  if (!env.TAVILY_API_KEY) {
+    return null;
+  }
+
+  try {
+    const response = await fetchWithTimeout(
+      "https://api.tavily.com/search",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: env.TAVILY_API_KEY,
+          query,
+          search_depth: "advanced",
+          max_results: MAX_WEB_RESULTS,
+          include_answer: false,
+          include_raw_content: false
+        })
+      },
+      TAVILY_TIMEOUT
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Tavily failed: ${response.status} ${errorText.slice(0, 300)}`);
+    }
+
+    const data = await response.json();
+    const results = Array.isArray(data?.results) ? data.results : [];
+
+    if (results.length === 0) {
+      return null;
+    }
+
+    return results
+      .map((item, index) => {
+        const title = String(item.title || "").trim();
+        const url = String(item.url || "").trim();
+        const content = String(item.content || "").replace(/\s+/g, " ").trim().slice(0, 700);
+        return `[${index + 1}] ${title}\nURL: ${url}\n${content}`;
+      })
+      .join("\n\n");
+  } catch (error) {
+    console.error("TAVILY ERROR:", error?.message);
+    return null;
+  }
+}
+
+function needsWebResearch(text) {
+  const lower = String(text || "").toLowerCase();
+
+  const triggers = [
+    "latest", "today", "tonight", "yesterday", "this week", "this month",
+    "current", "currently", "right now", "recent", "recently", "news",
+    "breaking", "update", "updates", "happened", "happening", "trending",
+    "price", "prices", "cost", "how much", "exchange rate", "dollar rate",
+    "naira rate", "score", "scores", "result", "results", "fixture",
+    "fixtures", "standings", "league table", "who won", "who is the",
+    "who's the", "who became", "who was appointed", "election", "elections",
+    "weather", "forecast", "release date", "released", "launch", "launched",
+    "new version", "stock", "stocks", "share price", "crypto", "bitcoin",
+    "ethereum", "schedule", "timetable", "deadline", "2025", "2026", "2027"
+  ];
+
+  return triggers.some((trigger) => lower.includes(trigger));
+}
+
+// ==========================================
+// MAIN AI REPLY
+// ==========================================
+
+async function getAIReply(text, userId, env) {
+  const history = await loadConversationHistory(userId, env);
+
+  let researchBlock = "";
+
+  if (needsWebResearch(text) && env.TAVILY_API_KEY) {
+    const research = await tavilySearch(text, env);
+
+    if (research) {
+      researchBlock = `
+
+WEB RESEARCH RESULTS (retrieved just now — use these for current facts):
+${research}
+
+Use only the URLs above when citing sources. Do not invent links.`;
+    } else {
+      researchBlock = `
+
+WEB RESEARCH RESULTS: none available. Live verification was not possible for this question. Say so plainly instead of guessing at current facts.`;
+    }
+  }
+
+  const systemWithResearch = SYSTEM_PROMPT + researchBlock;
+
+  // FIRST ATTEMPT: Gemini.
+  if (env.GEMINI_API_KEY) {
+    try {
+      const contents = buildGeminiContents(history, text);
+
+      const response = await fetchWithTimeout(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemWithResearch }] },
+            contents,
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 1500
+            }
+          })
+        },
+        GEMINI_TIMEOUT
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Gemini failed: ${response.status} ${errorText.slice(0, 300)}`);
+      }
+
+      const data = await response.json();
+      const answer = data?.candidates?.[0]?.content?.parts
+        ?.map(part => part.text || "")
+        .join("\n")
+        .trim() || "";
+
+      if (answer) {
+        await saveConversationHistory(
+          userId,
+          [...history, { role: "user", content: text }, { role: "assistant", content: answer }],
+          env
+        );
+        return answer;
+      }
+
+      throw new Error("Gemini returned an empty response.");
+    } catch (error) {
+      console.error("GEMINI ERROR:", error?.message);
+    }
+  }
+
+  // SECOND ATTEMPT: Workers AI primary model.
+  if (env.AI) {
+    try {
+      const result = await env.AI.run(PRIMARY_AI_MODEL, {
+        messages: [
+          { role: "system", content: systemWithResearch },
+          ...history,
+          { role: "user", content: text }
+        ],
+        max_tokens: 1200
+      });
+
+      const answer = extractCloudflareAnswer(result);
+
+      if (answer) {
+        await saveConversationHistory(
+          userId,
+          [...history, { role: "user", content: text }, { role: "assistant", content: answer }],
+          env
+        );
+        return answer;
+      }
+    } catch (error) {
+      console.error("PRIMARY MODEL ERROR:", error?.message);
+    }
+
+    // THIRD ATTEMPT: Workers AI fallback model.
+    try {
+      const result = await env.AI.run(FALLBACK_AI_MODEL, {
+        messages: [
+          { role: "system", content: systemWithResearch },
+          ...history,
+          { role: "user", content: text }
+        ],
+        max_tokens: 1000
+      });
+
+      const answer = extractCloudflareAnswer(result);
+
+      if (answer) {
+        await saveConversationHistory(
+          userId,
+          [...history, { role: "user", content: text }, { role: "assistant", content: answer }],
+          env
+        );
+        return answer;
+      }
+    } catch (error) {
+      console.error("FALLBACK MODEL ERROR:", error?.message);
+    }
+  }
+
+  return "I'm having trouble responding right now. Please try again in a moment.";
+}
+
+function buildGeminiContents(history, text) {
+  const contents = [];
+
+  for (const item of history) {
+    const role = item.role === "assistant" ? "model" : "user";
+    const content = typeof item.content === "string" ? item.content : "";
+
+    if (!content) continue;
+
+    if (contents.length > 0 && contents[contents.length - 1].role === role) {
+      contents[contents.length - 1].parts.push({ text: content });
+    } else {
+      contents.push({ role, parts: [{ text: content }] });
+    }
+  }
+
+  let finalText = text;
+
+  if (/^(yes|yeah|yep|correct|right|exactly)\b/i.test(text)) {
+    finalText = `${text}\n\n(Answer the question directly. Do not recap or confirm what I said.)`;
+  }
+
+  if (contents.length > 0 && contents[contents.length - 1].role === "user") {
+    contents[contents.length - 1].parts.push({ text: finalText });
+  } else {
+    contents.push({ role: "user", parts: [{ text: finalText }] });
+  }
+
+  return contents;
+}
+
+function extractCloudflareAnswer(result) {
+  if (!result) return "";
+
+  if (typeof result === "string") {
+    return result.trim();
+  }
+
+  if (typeof result.response === "string") {
+    return result.response.trim();
+  }
+
+  if (Array.isArray(result.choices) && result.choices.length > 0) {
+    const choice = result.choices[0];
+    const content = choice?.message?.content ?? choice?.text ?? "";
+    return typeof content === "string" ? content.trim() : "";
+  }
+
+  return "";
 }
 
 // ==========================================
@@ -854,543 +1191,53 @@ function decodeHtmlEntities(str) {
 // ==========================================
 
 async function loadConversationHistory(userId, env) {
-  if (!env.CHAT_MEMORY) {
-    throw new Error("CHAT_MEMORY KV binding is missing.");
-  }
+  if (!env.CHAT_MEMORY) return [];
 
   try {
-    const saved = await env.CHAT_MEMORY.get(`user:${userId}`);
-    if (!saved) return [];
+    const raw = await env.CHAT_MEMORY.get(`user:${userId}`);
+    if (!raw) return [];
 
-    const history = JSON.parse(saved);
-    if (!Array.isArray(history)) return [];
-
-    return history
-      .filter(item =>
-        item &&
-        (item.role === "user" || item.role === "assistant") &&
-        typeof item.content === "string"
-      )
-      .slice(-MAX_HISTORY_MESSAGES);
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
     console.error("MEMORY LOAD ERROR:", error?.message);
     return [];
   }
 }
 
-async function saveConversationHistory(userId, history, env) {
-  if (!env.CHAT_MEMORY) {
-    throw new Error("CHAT_MEMORY KV binding is missing.");
-  }
+async function saveConversationHistory(userId, messages, env) {
+  if (!env.CHAT_MEMORY) return;
 
-  const cleanHistory = (Array.isArray(history) ? history : [])
-    .filter(item =>
-      item &&
-      (item.role === "user" || item.role === "assistant") &&
-      typeof item.content === "string"
-    )
+  const trimmed = messages
+    .filter((item) => item && typeof item.content === "string" && item.content.trim())
     .slice(-MAX_HISTORY_MESSAGES);
 
-  await env.CHAT_MEMORY.put(
-    `user:${userId}`,
-    JSON.stringify(cleanHistory),
-    { expirationTtl: MEMORY_TTL }
-  );
-}
-
-// ==========================================
-// WEB RESEARCH DETECTION
-// ==========================================
-function needsWebResearch(text) {
-  const original = String(text || "").trim();
-  const value = original.toLowerCase();
-  if (!value) return false;
-
-  // Never research a bare URL — the link path handles those.
-  if (/^https?:\/\/\S+$/i.test(original)) return false;
-
-  const phrasePatterns = [
-    /\b(latest|today|currently|current|right now|recent|this week|this month|this year|breaking news|news update|updates|exchange rate|weather|forecast|live score|standings|rankings|fixtures|release date|available now|open now)\b/,
-    /\b(price|prices|cost|how much does .+ cost|how much is .+|what is the price of .+)\b/,
-    /\b(who is|who are|who owns|who founded|who created|who invented|who runs|what happened to|tell me about|what do you know about|information about|profile of)\b/,
-    /\b(company|companies|business|businesses|organization|organisation|brand|corporation|headquarters|official website|company history)\b/,
-    /\b(app|apps|application|applications|platform|platforms|website|websites|software|technology|product|products|service|services|device|devices|gadget|gadgets|artificial intelligence|ai model|chatbot|operating system|smartphone)\b/,
-    /\b(account|profile|username|handle|instagram|facebook|tiktok|twitter|x\.com|linkedin|youtube|snapchat|telegram|social media|followers|following|verified account|official account)\b/,
-    /\b(is it true|verify|verification|fact.?check|real or fake|is this real|is this genuine|research|sources?|find out|look up|search for|compare|comparison|official announcement|original source|direct link|reliable source|evidence|proof|confirm)\b/
-  ];
-
-  if (phrasePatterns.some(pattern => pattern.test(value))) return true;
-
-  const factualQuestionPatterns = [
-    /\bhas .+ announced\b/,
-    /\bdid .+ announce\b/,
-    /\bdoes .+ exist\b/,
-    /\bis .+ legitimate\b/,
-    /\bis .+ still operating\b/,
-    /\bwhere is .+ located\b/,
-    /\bwhen was .+ founded\b/,
-    /\bwho is .+\??$/,
-    /\bwhat is .+\??$/
-  ];
-
-  if (factualQuestionPatterns.some(pattern => pattern.test(value))) return true;
-
-  const isQuestion =
-    /\?$/.test(original) ||
-    /^(who|what|where|when|why|how|which|whose|whom|is|are|was|were|does|do|did|has|have|can|could|will|would)\b/i.test(original);
-
-  const hasNamedEntity =
-    /\b[A-Z]{2,}[A-Za-z0-9.-]*\b/.test(original) ||
-    /\b[A-Z][a-z]+(?:\s+[A-Z][A-Za-z]+)+\b/.test(original);
-
-  return isQuestion && hasNamedEntity;
-}
-
-
-
-// ==========================================
-// TAVILY WEB SEARCH
-// ==========================================
-
-async function searchWeb(query, env) {
-  if (!env.TAVILY_API_KEY) {
-    throw new Error("TAVILY_API_KEY is not configured.");
-  }
-
-  const queryText = String(query || "").trim().slice(0, 1000);
-  if (!queryText) throw new Error("Web search query is empty.");
-
-  const isNewsQuery =
-    /\b(news|latest news|breaking|headlines|current events|news today|today's news|this week's news)\b/i.test(queryText);
-
-  const isTodayQuery =
-    /\b(today|breaking|this morning|tonight|yesterday)\b/i.test(queryText);
-
-  const searchSettings = {
-    api_key: env.TAVILY_API_KEY,
-    query: queryText,
-    search_depth: isNewsQuery ? "advanced" : "basic",
-    max_results: MAX_WEB_RESULTS,
-    include_answer: true,
-    include_raw_content: false
-  };
-
-  if (isNewsQuery) {
-    searchSettings.topic = "news";
-    searchSettings.time_range = isTodayQuery ? "day" : "week";
-  }
-
-  console.log("TAVILY SEARCH SETTINGS:", {
-    topic: searchSettings.topic || "general",
-    searchDepth: searchSettings.search_depth,
-    timeRange: searchSettings.time_range || "not filtered"
+  await env.CHAT_MEMORY.put(`user:${userId}`, JSON.stringify(trimmed), {
+    expirationTtl: MEMORY_TTL
   });
-
-  const response = await fetchWithTimeout(
-    "https://api.tavily.com/search",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(searchSettings)
-    },
-    TAVILY_TIMEOUT
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Tavily request failed: ${response.status} ${errorText.slice(0, 300)}`);
-  }
-
-  const data = await response.json();
-  if (!data || !Array.isArray(data.results)) {
-    throw new Error("Tavily returned an unexpected response.");
-  }
-
-  console.log("TAVILY RESULTS:", {
-    count: data.results.length,
-    titles: data.results.map(item => item.title),
-    urls: data.results.map(item => item.url)
-  });
-
-  return data;
 }
 
 // ==========================================
-// FORMAT WEB RESEARCH RESULTS
+// TELEGRAM HELPERS
 // ==========================================
 
-function formatResearchContext(data) {
-  if (!data || !Array.isArray(data.results)) return "";
-
-  const results = data.results
-    .filter(item =>
-      item &&
-      typeof item.title === "string" &&
-      typeof item.url === "string" &&
-      typeof item.content === "string"
-    )
-    .map(item => {
-      let safeUrl = "";
-
-      try {
-        const parsedUrl = new URL(item.url);
-        if (parsedUrl.protocol === "https:" || parsedUrl.protocol === "http:") {
-          safeUrl = parsedUrl.href;
-        }
-      } catch {
-        safeUrl = "";
-      }
-
-      return {
-        title: item.title.slice(0, 300),
-        url: safeUrl,
-        publishedDate: typeof item.published_date === "string" ? item.published_date : "Not provided",
-        content: item.content.slice(0, 2400)
-      };
-    })
-    .filter(item => item.url)
-    .slice(0, MAX_WEB_RESULTS);
-
-  if (results.length === 0) return "";
-
-  const formatted = results.map((item, index) => `SOURCE [${index + 1}]
-Title: ${item.title}
-URL: ${item.url}
-Publication date: ${item.publishedDate}
-Article content:
-${item.content}`);
-
-  const directAnswer = data.answer
-    ? `TAVILY SEARCH SUMMARY (USE AS A SEARCH AID, NOT AS INDEPENDENT PROOF):
-${String(data.answer).slice(0, 2000)}
-
-`
-    : "";
-
-    return `IMPORTANT WEB RESEARCH AND SOURCE VERIFICATION RULES:
-
-SOURCE HANDLING:
-1. Treat every source as a separate document.
-2. Match every factual claim to the source that actually supports it.
-3. Use the exact URL supplied for that source.
-4. Never invent, guess, shorten, or modify a URL.
-5. Never use one source to support unrelated news stories.
-6. Prefer original reporting, official announcements, and direct article pages.
-7. A general news roundup, homepage, trend guide, or category page is NOT a direct article.
-8. Do not describe a link as a direct article unless its title and content identify the specific story.
-9. If only a general page is available, disclose that a direct article link was not found.
-10. Do not invent publication dates. If no date is supplied, say "Publication date not provided."
-
-FACT CHECKING:
-11. Do not treat the Tavily search summary as proof of a claim.
-12. Do not present an allegation, prediction, or opinion as an established fact.
-13. For major announcements, leadership changes, financial claims, and controversial stories, look for reliable supporting sources.
-14. If sources disagree, explain the disagreement.
-15. If the evidence is insufficient, say so instead of guessing.
-16. Do not present old information as breaking news.
-
-NEWS RESPONSE FORMAT:
-Apply this format ONLY when the user is asking for news, current events, headlines or recent developments.
-
-For each story provide:
-- Headline
-- Brief explanation
-- Publication date, if available
-- Its own supporting source and exact URL
-
-For factual questions that are not news requests (for example "who is the president of Nigeria"), answer directly in plain prose with a short source list. Do not wrap the answer in a news-story template.
-
-Only include stories supported by the supplied research results.
-Do not invent extra stories to reach a requested number.
-
-${directAnswer}${formatted.join("\n\n")}`;
-}
-
-
-
-// ==========================================
-// EXTRACT AI RESPONSE
-// ==========================================
-
-function extractCloudflareAnswer(result) {
-  if (!result) {
-    console.log("AI RESULT: Empty result");
-    return "";
-  }
-
-  if (typeof result === "string") return result.trim();
-  if (typeof result.response === "string") return result.response.trim();
-  if (typeof result.result === "string") return result.result.trim();
-
-  if (Array.isArray(result.response)) {
-    return result.response
-      .map(item => typeof item === "string" ? item : item?.text || "")
-      .join("\n")
-      .trim();
-  }
-
-  if (Array.isArray(result.content)) {
-    return result.content
-      .map(item => item?.text || "")
-      .join("\n")
-      .trim();
-  }
-
-  console.error("AI RAW RESULT:", JSON.stringify(result).slice(0, 800));
-  console.error("AI RESULT: Unsupported response format");
-  return "";
-}
-
-
-// ==========================================
-// BUILD GEMINI CONVERSATION HISTORY
-// ==========================================
-
-function buildGeminiContents(history, userMessage) {
-  const contents = [];
-
-  for (const item of history || []) {
-    if (
-      !item ||
-      typeof item.content !== "string" ||
-      !["user", "assistant"].includes(item.role)
-    ) {
-      continue;
-    }
-
-    const role = item.role === "assistant" ? "model" : "user";
-    const previous = contents[contents.length - 1];
-
-    if (previous && previous.role === role) {
-      previous.parts[0].text += "\n\n" + item.content;
-    } else {
-      contents.push({ role, parts: [{ text: item.content }] });
-    }
-  }
-
-  while (contents.length && contents[0].role !== "user") {
-    contents.shift();
-  }
-
-  if (contents.length && contents[contents.length - 1].role === "user") {
-    contents[contents.length - 1].parts[0].text += "\n\n" + userMessage;
-  } else {
-    contents.push({ role: "user", parts: [{ text: userMessage }] });
-  }
-
-  const last = contents[contents.length - 1];
-  if (
-    last &&
-    last.role === "user" &&
-    /^(yes|yeah|yep|correct|right|exactly)\b/i.test(last.parts[0].text.trim())
-  ) {
-    last.parts[0].text +=
-      "\n\n(Answer the question directly. Do not recap or confirm what I said.)";
-  }
-
-  return contents;
-}
-
-
-// ==========================================
-// BUILD AI USER MESSAGE
-// ==========================================
-
-function buildAIUserMessage(userMessage, researchContext, researchStatus) {
-  let message = String(userMessage || "");
-
-  if (researchContext) {
-    message += `
-
-WEB RESEARCH RESULTS:
-
-${researchContext}
-
-IMPORTANT RESEARCH AND CITATION RULES:
-1. Use the supplied research results to answer questions about current events.
-2. Verify each important claim against the supplied source content.
-3. For every separate news story, provide its own supporting source.
-4. Include the exact article URL supplied for that specific story.
-5. Never use one general homepage or roundup link as the source for multiple unrelated stories.
-6. Never invent, guess, or modify URLs.
-7. Do not combine unrelated stories under one citation.
-8. If a story has no suitable direct article URL, say that a direct source link was unavailable.
-9. Do not present unsupported claims as confirmed facts.
-10. If the research results do not contain enough reliable information, explain that honestly.
-11. Include publication dates when available.
-12. Keep the response readable, with clean paragraphs and headings.
-
-For news requests, give each story its own headline, explanation, available publication date and source link.
-Do not create a source link unless its exact URL appears in the supplied research results.`;
-  } else if (researchStatus) {
-    message += `
-
-LIVE RESEARCH NOTICE:
-${researchStatus}
-
-Be transparent that current information could not be verified live. Do not pretend that a search succeeded or invent sources.`;
-  }
-
-  return message;
-}
-
-// ==========================================
-// MAIN AI RESPONSE WITH FALLBACKS
-// ==========================================
-
-async function getAIReply(userMessage, userId, env) {
-  const startedAt = Date.now();
-
-  if (!env.CHAT_MEMORY) {
-    throw new Error("CHAT_MEMORY KV binding is missing.");
-  }
-
-  const history = await loadConversationHistory(userId, env);
-  let researchContext = "";
-  let researchStatus = "";
-
-  if (needsWebResearch(userMessage)) {
-    try {
-      const researchResults = await searchWeb(userMessage, env);
-      researchContext = formatResearchContext(researchResults);
-
-      if (!researchContext) {
-        researchStatus = "The web search returned no usable results.";
-      }
-    } catch (error) {
-      console.error("WEB RESEARCH ERROR:", error?.message);
-      researchStatus = "Live web research failed or is unavailable.";
-    }
-  }
-
-  const currentMessage = buildAIUserMessage(userMessage, researchContext, researchStatus);
-  const messages = [
-    { role: "system", content: SYSTEM_PROMPT },
-    ...history,
-    { role: "user", content: currentMessage }
-  ];
-
-  let answer = "";
-  let modelStarted = Date.now();
-
-  // FIRST ATTEMPT: GEMINI
-  try {
-    if (!env.GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured.");
-    }
-
-    const contents = buildGeminiContents(history, currentMessage);
-    const response = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents,
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 700
-          }
-        })
-      },
-      GEMINI_TIMEOUT
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Gemini request failed: ${response.status} ${errorText.slice(0, 300)}`);
-    }
-
-    const data = await response.json();
-    answer = data?.candidates?.[0]?.content?.parts
-      ?.map(part => part.text || "")
-      .join("\n")
-      .trim() || "";
-
-    if (!answer && data?.promptFeedback?.blockReason) {
-      throw new Error(`Gemini blocked the prompt: ${data.promptFeedback.blockReason}`);
-    }
-
-    console.log("GEMINI MODEL TIME:", Date.now() - modelStarted, "ms");
-  } catch (error) {
-    console.error("GEMINI AI ERROR:", error?.message);
-  }
-
-  // SECOND ATTEMPT: GEMMA
-  if (!answer && env.AI) {
-    modelStarted = Date.now();
-
-    try {
-      const result = await env.AI.run(PRIMARY_AI_MODEL, {
-        messages,
-        max_tokens: 700
-      });
-      answer = extractCloudflareAnswer(result);
-      console.log("GEMMA MODEL TIME:", Date.now() - modelStarted, "ms");
-    } catch (error) {
-      console.error("GEMMA AI ERROR:", error?.message);
-    }
-  }
-
-  // THIRD ATTEMPT: GLM
-  if (!answer && env.AI) {
-    modelStarted = Date.now();
-
-    try {
-      const result = await env.AI.run(FALLBACK_AI_MODEL, {
-        messages,
-        max_tokens: 700
-      });
-      answer = extractCloudflareAnswer(result);
-      console.log("GLM MODEL TIME:", Date.now() - modelStarted, "ms");
-    } catch (error) {
-      console.error("GLM AI ERROR:", error?.message);
-    }
-  }
-
-  if (!answer) {
-    answer = "I'm sorry, I'm having trouble generating a response right now. Please try again shortly.";
-  }
-
-  try {
-    await saveConversationHistory(
-      userId,
-      [
-        ...history,
-        { role: "user", content: userMessage },
-        { role: "assistant", content: answer }
-      ],
-      env
-    );
-  } catch (error) {
-    console.error("MEMORY SAVE ERROR:", error?.message);
-  }
-
-  console.log("TOTAL AI RESPONSE TIME:", Date.now() - startedAt, "ms");
-  return answer;
-}
-
-// ==========================================
-// TELEGRAM SEND MESSAGE
-// ==========================================
-
-async function sendMessage(chatId, text, env, options = {}) {
+async function sendMessage(chatId, text, env) {
   if (!env.TELEGRAM_BOT_TOKEN) {
     throw new Error("TELEGRAM_BOT_TOKEN is missing.");
   }
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: chatId,
-        text: String(text || ""),
-        ...options
+        text: String(text || "").slice(0, TELEGRAM_MESSAGE_LIMIT),
+        disable_web_page_preview: true
       })
-    }
+    },
+    15000
   );
 
   if (!response.ok) {
@@ -1398,132 +1245,78 @@ async function sendMessage(chatId, text, env, options = {}) {
     throw new Error(`Telegram sendMessage failed: ${response.status} ${errorText.slice(0, 300)}`);
   }
 
-  const data = await response.json();
-  if (!data.ok) {
-    throw new Error(`Telegram rejected the message: ${data.description || "Unknown error"}`);
-  }
-
-  return data;
-}
-
-// ==========================================
-// TELEGRAM CHAT ACTION
-// ==========================================
-
-async function sendChatAction(chatId, action, env) {
-  if (!env.TELEGRAM_BOT_TOKEN) return;
-
-  try {
-    await fetch(
-      `${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/sendChatAction`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatId, action })
-      }
-    );
-  } catch (error) {
-    console.error("CHAT ACTION ERROR:", error?.message);
-  }
-}
-
-// ==========================================
-// SEND LONG TELEGRAM MESSAGES
-// ==========================================
-
-function splitTelegramMessage(text, limit = TELEGRAM_MESSAGE_LIMIT) {
-  const remaining = String(text || "").trim();
-  if (!remaining) return [];
-
-  const chunks = [];
-  let rest = remaining;
-
-  while (rest.length > limit) {
-    let breakAt = rest.lastIndexOf("\n", limit);
-    if (breakAt < limit * 0.6) {
-      breakAt = rest.lastIndexOf(" ", limit);
-    }
-    if (breakAt < limit * 0.6) {
-      breakAt = limit;
-    }
-
-    const chunk = rest.slice(0, breakAt).trim();
-    if (chunk) chunks.push(chunk);
-
-    rest = rest.slice(breakAt).trimStart();
-  }
-
-  if (rest) chunks.push(rest);
-  return chunks;
+  return response;
 }
 
 async function sendLongMessage(chatId, text, env) {
-  let cleanText = String(text || "");
+  const clean = String(text || "").trim();
+  if (!clean) return;
 
-  cleanText = cleanText
-    .replace(/&nbsp;|&#160;|&#x0*a0;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"');
+  if (clean.length <= TELEGRAM_MESSAGE_LIMIT) {
+    await sendMessage(chatId, clean, env);
+    return;
+  }
 
-  cleanText = cleanText.replace(
-    /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
-    "$1: $2"
-  );
+  const chunks = [];
+  let remaining = clean;
 
-  // Protect URLs so formatting cleanup never damages them.
-  const protectedUrls = [];
-  cleanText = cleanText.replace(/https?:\/\/[^\s<>"')\]]+/g, (url) => {
-    protectedUrls.push(url);
-    return `\u0000URL${protectedUrls.length - 1}\u0000`;
-  });
+  while (remaining.length > 0) {
+    if (remaining.length <= TELEGRAM_MESSAGE_LIMIT) {
+      chunks.push(remaining);
+      break;
+    }
 
-  cleanText = cleanText.replace(/\\([*_`#])/g, "$1");
-  cleanText = cleanText.replace(/^#{1,6}\s*/gm, "");
-  cleanText = cleanText.replace(/^\s*[-*+]\s+/gm, "• ");
-  cleanText = cleanText.replace(/\*\*|__|\*|_/g, "");
-  cleanText = cleanText.replace(/`{1,3}/g, "");
+    let cut = remaining.lastIndexOf("\n", TELEGRAM_MESSAGE_LIMIT);
+    if (cut < TELEGRAM_MESSAGE_LIMIT * 0.5) {
+      cut = remaining.lastIndexOf(" ", TELEGRAM_MESSAGE_LIMIT);
+    }
+    if (cut < TELEGRAM_MESSAGE_LIMIT * 0.5) {
+      cut = TELEGRAM_MESSAGE_LIMIT;
+    }
 
-  // Restore URLs exactly as they were.
-  cleanText = cleanText.replace(/\u0000URL(\d+)\u0000/g, (match, index) => {
-    const url = protectedUrls[Number(index)];
-    return url === undefined ? match : url;
-  });
-
-  cleanText = cleanText
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-
-  const chunks = splitTelegramMessage(cleanText);
+    chunks.push(remaining.slice(0, cut));
+    remaining = remaining.slice(cut).trimStart();
+  }
 
   for (const chunk of chunks) {
     await sendMessage(chatId, chunk, env);
   }
 }
 
-
-// ==========================================
-// ANSWER TELEGRAM CALLBACK
-// ==========================================
-
-async function answerCallback(callbackQuery, env) {
-  if (!env.TELEGRAM_BOT_TOKEN || !callbackQuery?.id) return;
+async function sendChatAction(chatId, action, env) {
+  if (!env.TELEGRAM_BOT_TOKEN) return;
 
   try {
-    const response = await fetch(
+    await fetchWithTimeout(
+      `${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/sendChatAction`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, action })
+      },
+      10000
+    );
+  } catch (error) {
+    console.error("CHAT ACTION ERROR:", error?.message);
+  }
+}
+
+async function answerCallback(callbackQuery, env) {
+  if (!env.TELEGRAM_BOT_TOKEN) return;
+
+  try {
+    await fetchWithTimeout(
       `${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/answerCallbackQuery`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ callback_query_id: callbackQuery.id })
-      }
+        body: JSON.stringify({
+          callback_query_id: callbackQuery.id,
+          text: "Got it!"
+        })
+      },
+      10000
     );
-
-    if (!response.ok) {
-      console.error("CALLBACK RESPONSE ERROR:", response.status);
-    }
   } catch (error) {
     console.error("CALLBACK ERROR:", error?.message);
   }

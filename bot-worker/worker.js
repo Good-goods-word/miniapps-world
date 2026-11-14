@@ -4,7 +4,7 @@ const WEBSITE_URL = "https://miniapps-world.lildavid5h.workers.dev/";
 // AI MODELS
 const PRIMARY_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const FALLBACK_AI_MODEL = "@cf/meta/llama-3.1-8b-instruct";
-const WHISPER_MODEL = "@cf/openai/whisper-large-v3-turbo";
+const WHISPER_MODEL = "@cf/openai/whisper";
 const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
 const GEMINI_MODEL = "gemini-3.8-flash";
 

@@ -2,11 +2,12 @@ const TELEGRAM_API = "https://api.telegram.org";
 const WEBSITE_URL = "https://miniapps-world.lildavid5h.workers.dev/";
 
 // AI MODELS
-const PRIMARY_AI_MODEL = "@cf/google/gemma-4-26b-a4b-it";
-const FALLBACK_AI_MODEL = "@cf/zai-org/glm-4.7-flash";
+const PRIMARY_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const FALLBACK_AI_MODEL = "@cf/meta/llama-3.1-8b-instruct";
 const WHISPER_MODEL = "@cf/openai/whisper-large-v3-turbo";
 const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-3.8-flash";
+
 
 // LIMITS
 const MAX_HISTORY_MESSAGES = 12;
@@ -1096,9 +1097,11 @@ function extractCloudflareAnswer(result) {
       .trim();
   }
 
+  console.error("AI RAW RESULT:", JSON.stringify(result).slice(0, 800));
   console.error("AI RESULT: Unsupported response format");
   return "";
 }
+
 
 // ==========================================
 // BUILD GEMINI CONVERSATION HISTORY

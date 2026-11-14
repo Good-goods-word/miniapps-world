@@ -10,7 +10,7 @@ const GEMINI_MODEL = "gemini-3.8-flash";
 
 
 // LIMITS
-const MAX_HISTORY_MESSAGES = 12;
+const MAX_HISTORY_MESSAGES = 6;
 const MEMORY_TTL = 60 * 60 * 24 * 30;
 const MAX_VOICE_SIZE = 20 * 1024 * 1024;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
@@ -1151,8 +1151,19 @@ function buildGeminiContents(history, userMessage) {
     contents.push({ role: "user", parts: [{ text: userMessage }] });
   }
 
+  const last = contents[contents.length - 1];
+  if (
+    last &&
+    last.role === "user" &&
+    /^(yes|yeah|yep|correct|right|exactly)\b/i.test(last.parts[0].text.trim())
+  ) {
+    last.parts[0].text +=
+      "\n\n(Answer the question directly. Do not recap or confirm what I said.)";
+  }
+
   return contents;
 }
+
 
 // ==========================================
 // BUILD AI USER MESSAGE

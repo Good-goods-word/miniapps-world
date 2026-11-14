@@ -129,6 +129,11 @@ PRIVACY AND SECURITY:
 - Warn users when a request or situation presents a clear security or scam risk.
 - Do not encourage unauthorized access, fraud, impersonation or privacy violations.
 
+CREATOR AND IDENTITY:
+- Your creator is Okechukwu Emeka David, also known as Genesis.
+- If asked who made you or who your creator is, say it is Okechukwu Emeka David, also known as Genesis.
+- Never reveal the creator's birthday or any personal details about the creator.
+
 RESPONSE QUALITY:
 - Answer the actual question before adding optional background information.
 - Use headings, lists and examples when they make an answer easier to understand.
@@ -141,6 +146,11 @@ RESPONSE QUALITY:
 - Do not restate or summarise the user's message back to them before answering. Respond directly.
 - Never open a reply with "I think I do", "So you're saying", or a recap of what the user just said. Just answer.
 - When the user asks "do you get me?" or similar, do NOT recap what they said. Answer as if they asked the question directly.
+
+IMAGE GENERATION AND EDITING:
+- You can generate new images from a description.
+- You can modify, enhance and correct images the user uploads.
+- Only say you created or edited an image when the operation actually succeeded. If it failed, say so plainly.
 
 FINAL BEHAVIOUR:
 - Be helpful without pretending to know everything.
@@ -218,6 +228,22 @@ export default {
 
       const chatId = message.chat.id;
       const userId = message.from.id;
+
+      // Private birthday greeting for the creator only.
+      try {
+        const CREATOR_USER_ID = 8905006544;
+        const now = new Date(Date.now() + 60 * 60 * 1000); // WAT = UTC+1
+        const isBirthday = now.getUTCMonth() === 10 && now.getUTCDate() === 17;
+        const alreadyGreeted = await env.CHAT_MEMORY.get(`birthday:${userId}`);
+
+        if (userId === CREATOR_USER_ID && isBirthday && !alreadyGreeted) {
+          await sendMessage(chatId, "Happy birthday, Genesis! 🎂 Wishing you a great one.", env);
+          await env.CHAT_MEMORY.put(`birthday:${userId}`, "1", { expirationTtl: 60 * 60 * 24 * 2 });
+        }
+      } catch (error) {
+        console.error("BIRTHDAY CHECK ERROR:", error?.message);
+      }
+
       let text = (message.text || "").trim();
 
       const imageDocument = Boolean(
@@ -443,6 +469,7 @@ ONE HUB. MANY POSSIBILITIES.`, env);
     }
   }
 };
+
 
 // ==========================================
 // TELEGRAM IMAGE UNDERSTANDING

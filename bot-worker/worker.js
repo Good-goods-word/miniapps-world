@@ -882,12 +882,12 @@ async function fetchPageMetadata(url) {
 
     const html = (await response.text()).slice(0, 400000);
 
-    const meta = (prop) => {
+        const meta = (prop) => {
       const patterns = [
-        new RegExp(`<meta[^>]+property=["']${prop}["'][^>]+content=["']([^"']*)["']`, "i"),
-        new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+property=["']${prop}["']`, "i"),
-        new RegExp(`<meta[^>]+name=["']${prop}["'][^>]+content=["']([
-        new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+name=["']${prop}["']`, "i")
+        new RegExp('<meta[^>]+property=["\']' + prop + '["\'][^>]+content=["\']([^"\']*)["\']', "i"),
+        new RegExp('<meta[^>]+content=["\']([^"\']*)["\'][^>]+property=["\']' + prop + '["\']', "i"),
+        new RegExp('<meta[^>]+name=["\']' + prop + '["\'][^>]+content=["\']([^"\']*)["\']', "i"),
+        new RegExp('<meta[^>]+content=["\']([^"\']*)["\'][^>]+name=["\']' + prop + '["\']', "i")
       ];
 
       for (const pattern of patterns) {
@@ -898,6 +898,7 @@ async function fetchPageMetadata(url) {
       }
       return "";
     };
+
 
     const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
     const title = meta("og:title") || (titleMatch ? decodeHtmlEntities(titleMatch[1].trim()) : "");

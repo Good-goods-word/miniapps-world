@@ -815,9 +815,6 @@ Explain what this page is, based only on the metadata above. Be clear that you r
 
       const data = await response.json();
       answer = data?.candidates?.[0]?.content?.parts
-        ?.map(part =>
-      const data = await response.json();
-      answer = data?.candidates?.[0]?.content?.parts
         ?.map(part => part.text || "")
         .join("\n")
         .trim() || "";
@@ -837,7 +834,7 @@ Explain what this page is, based only on the metadata above. Be clear that you r
       });
       answer = extractCloudflareAnswer(result);
     } catch (error) {
-      console.error("LINK GEMMA ERROR:", error?.message);
+      console.error("LINK WORKERS AI ERROR:", error?.message);
     }
   }
 
@@ -866,6 +863,7 @@ ${url}`;
 
   return answer;
 }
+
 
 async function fetchPageMetadata(url) {
   const controller = new AbortController();

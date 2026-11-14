@@ -1034,7 +1034,7 @@ ${String(data.answer).slice(0, 2000)}
 `
     : "";
 
-  return `IMPORTANT WEB RESEARCH AND SOURCE VERIFICATION RULES:
+    return `IMPORTANT WEB RESEARCH AND SOURCE VERIFICATION RULES:
 
 SOURCE HANDLING:
 1. Treat every source as a separate document.
@@ -1057,17 +1057,21 @@ FACT CHECKING:
 16. Do not present old information as breaking news.
 
 NEWS RESPONSE FORMAT:
+Apply this format ONLY when the user is asking for news, current events, headlines or recent developments.
+
 For each story provide:
 - Headline
 - Brief explanation
 - Publication date, if available
 - Its own supporting source and exact URL
 
+For factual questions that are not news requests (for example "who is the president of Nigeria"), answer directly in plain prose with a short source list. Do not wrap the answer in a news-story template.
+
 Only include stories supported by the supplied research results.
 Do not invent extra stories to reach a requested number.
 
 ${directAnswer}${formatted.join("\n\n")}`;
-}
+
 
 // ==========================================
 // EXTRACT AI RESPONSE

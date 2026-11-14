@@ -346,18 +346,22 @@ export default {
 
         text = await transcribeTelegramVoice(message.voice.file_id, env);
 
-        if (!text) {
-          await sendMessage(chatId, "I couldn't understand that voice note. Please try recording it again.", env);
+        console.log("VOICE RAW:", JSON.stringify(text));
+
+        const cleaned = String(text || "").replace(/[\s.,!?…\-]/g, "");
+
+        if (cleaned.length < 3) {
+          console.log("VOICE REJECTED:", JSON.stringify(text));
+          await sendMessage(
+            chatId,
+            "I couldn't catch that voice note. Try again in a quieter place, or type it for me.",
+            env
+          );
           return new Response("OK");
         }
-
-        // No "📝 I heard: ..." echo — the answer stands alone.
       }
 
-      if (!text) {
-        await sendMessage(chatId, "Send me a text message, an image or a Telegram voice note and let's chat!", env);
-        return new Response("OK");
-      }
+      
 
       // ---------- COMMANDS ----------
       const command = text.split(/\s+/)[0].split("@")[0].toLowerCase();
@@ -720,15 +724,21 @@ async function transcribeTelegramVoice(fileId, env) {
     throw new Error("Voice note exceeds the 20 MB processing limit.");
   }
 
+  console.log("VOICE BYTES:", audioBuffer.byteLength);
+
   const result = await env.AI.run(WHISPER_MODEL, {
     audio: [...new Uint8Array(audioBuffer)],
     language: "en",
-    task: "transcribe"
+    task: "transcribe",
+    vad_filter: true
   });
 
   const transcription = result?.text || result?.transcription_info?.text || "";
+  console.log("VOICE TEXT:", JSON.stringify(transcription));
+
   return String(transcription).trim();
 }
+
 
 // ==========================================
 // LINK HANDLING

@@ -891,9 +891,6 @@ ${url}`;
 
 async function fetchPageMetadata(url) {
   const controller = new AbortController();
-  const timer =
-async function fetchPageMetadata(url) {
-  const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LINK_FETCH_TIMEOUT);
 
   try {

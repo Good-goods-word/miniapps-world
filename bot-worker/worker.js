@@ -9,6 +9,14 @@ const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
 const GEMINI_MODEL = "gemini-3.8-flash";
 const IMAGE_GEN_MODEL = "@cf/black-forest-labs/flux-1-schnell";
 
+// Image models available to /imagine
+const IMAGE_MODELS = {
+  flux: { model: "@cf/black-forest-labs/flux-1-schnell", steps: 8 },
+  sdxl: { model: "@cf/stabilityai/stable-diffusion-xl-base-1.0", steps: 20 },
+  lucid: { model: "@cf/leonardo/lucid-origin", steps: 20 },
+  phoenix: { model: "@cf/leonardo/phoenix-1.0", steps: 20 }
+};
+
 // LIMITS
 const MAX_HISTORY_MESSAGES = 6;
 const MEMORY_TTL = 60 * 60 * 24 * 30;
@@ -469,19 +477,45 @@ ONE HUB. MANY POSSIBILITIES.`, env);
           return new Response("OK");
         }
 
-        const prompt = text.replace(/^\/imagine(@\S+)?\s*/i, "").trim();
+        let prompt = text.replace(/^\/imagine(@\S+)?\s*/i, "").trim();
+
+        // Optional model flag: /imagine --sdxl a red bicycle in the rain
+        let chosen = "flux";
+        const modelFlag = prompt.match(/^--(\w+)\s+/i);
+
+        if (modelFlag) {
+          const key = modelFlag[1].toLowerCase();
+          if (IMAGE_MODELS[key]) {
+            chosen = key;
+            prompt = prompt.slice(modelFlag[0].length).trim();
+          } else {
+            await sendMessage(
+              chatId,
+              `Unknown model "${key}".\n\nAvailable: ${Object.keys(IMAGE_MODELS).join(", ")}\n\nExample:\n/imagine --sdxl a red bicycle in the rain`,
+              env
+            );
+            return new Response("OK");
+          }
+        }
 
         if (!prompt) {
-          await sendMessage(chatId, "Send it like this:\n/imagine a red bicycle in the rain", env);
+          await sendMessage(
+            chatId,
+            `Send it like this:\n/imagine a red bicycle in the rain\n\nPick a model with a flag:\n${Object.keys(IMAGE_MODELS)
+              .map((key) => `/imagine --${key} your description`)
+              .join("\n")}`,
+            env
+          );
           return new Response("OK");
         }
 
+        const config = IMAGE_MODELS[chosen];
         await sendChatAction(chatId, "upload_photo", env);
 
         try {
-          const result = await env.AI.run(IMAGE_GEN_MODEL, {
+          const result = await env.AI.run(config.model, {
             prompt: prompt.slice(0, 2000),
-            steps: 8
+            steps: config.steps
           });
 
           if (!result?.image) {
@@ -496,6 +530,7 @@ ONE HUB. MANY POSSIBILITIES.`, env);
 
         return new Response("OK");
       }
+
 
       if (command === "/forget") {
         if (!env.CHAT_MEMORY) {

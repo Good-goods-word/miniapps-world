@@ -361,7 +361,10 @@ export default {
         }
       }
 
-      
+      // Ignore messages with no usable content (stickers, videos, etc.).
+      if (!text) {
+        return new Response("OK");
+      }
 
       // ---------- COMMANDS ----------
       const command = text.split(/\s+/)[0].split("@")[0].toLowerCase();
@@ -478,8 +481,7 @@ ONE HUB. MANY POSSIBILITIES.`, env);
         try {
           const result = await env.AI.run(IMAGE_GEN_MODEL, {
             prompt: prompt.slice(0, 2000),
-            steps: 8,
-            seed: Math.floor(Math.random() * 2147483647)
+            steps: 8
           });
 
           if (!result?.image) {
@@ -601,57 +603,41 @@ Describe only what is actually visible in this image. State which app or platfor
 
   let answer = "";
 
-  // FIRST ATTEMPT: Workers AI vision model (image inside message content).
-  try {
-    const result = await env.AI.run(VISION_MODEL, {
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        ...history,
-        {
-          role: "user",
-          content: [
-            { type: "text", text: visionPrompt },
-            { type: "image_url", image_url: { url: imageData } }
-          ]
-        }
-      ],
-      max_tokens: 1200
-    });
-
-    answer = extractCloudflareAnswer(result);
-  } catch (error) {
-    console.error("VISION MODEL ERROR:", error?.message);
-  }
-
-  // SECOND ATTEMPT: Gemini vision (much better at screenshots).
-  if (!answer && env.GEMINI_API_KEY) {
+  // FIRST ATTEMPT: Gemini vision (much better at screenshots).
+  if (env.GEMINI_API_KEY) {
     try {
       const base64Only = imageData.split(",")[1];
 
-      const response = await fetchWithTimeout(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-            contents: [
-              {
-                role: "user",
-                parts: [
-                  { text: visionPrompt },
-                  { inline_data: { mime_type: mimeType, data: base64Only } }
-                ]
+      let response;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        response = await fetchWithTimeout(
+          `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+              contents: [
+                {
+                  role: "user",
+                  parts: [
+                    { text: visionPrompt },
+                    { inline_data: { mime_type: mimeType, data: base64Only } }
+                  ]
+                }
+              ],
+              generationConfig: {
+                temperature: 0.4,
+                maxOutputTokens: 1200
               }
-            ],
-            generationConfig: {
-              temperature: 0.4,
-              maxOutputTokens: 1200
-            }
-          })
-        },
-        GEMINI_TIMEOUT
-      );
+            })
+          },
+          GEMINI_TIMEOUT
+        );
+
+        if (response.ok || response.status !== 503) break;
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -660,11 +646,35 @@ Describe only what is actually visible in this image. State which app or platfor
 
       const data = await response.json();
       answer = data?.candidates?.[0]?.content?.parts
-        ?.map(part => part.text || "")
+        ?.map((part) => part.text || "")
         .join("\n")
         .trim() || "";
     } catch (error) {
       console.error("GEMINI VISION ERROR:", error?.message);
+    }
+  }
+
+  // SECOND ATTEMPT: Workers AI vision model (fallback when Gemini fails).
+  if (!answer) {
+    try {
+      const result = await env.AI.run(VISION_MODEL, {
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          ...history,
+          {
+            role: "user",
+            content: [
+              { type: "text", text: visionPrompt },
+              { type: "image_url", image_url: { url: imageData } }
+            ]
+          }
+        ],
+        max_tokens: 1200
+      });
+
+      answer = extractCloudflareAnswer(result);
+    } catch (error) {
+      console.error("VISION MODEL ERROR:", error?.message);
     }
   }
 
@@ -880,7 +890,14 @@ ${url}`;
   return answer;
 }
 
+async function fetchPageMetadata(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LINK_FETCH_TIMEOUT);
 
+  try {
+    const response = await fetch(url, {
+      redirect: "follow",
+      signal:
 async function fetchPageMetadata(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LINK_FETCH_TIMEOUT);

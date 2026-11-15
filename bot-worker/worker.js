@@ -890,14 +890,7 @@ ${url}`;
   return answer;
 }
 
-async function fetchPageMetadata(url) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), LINK_FETCH_TIMEOUT);
 
-  try {
-    const response = await fetch(url, {
-      redirect: "follow",
-      signal:
 async function fetchPageMetadata(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LINK_FETCH_TIMEOUT);
